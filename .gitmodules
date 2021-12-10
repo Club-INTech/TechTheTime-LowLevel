@@ -1,0 +1,4 @@
+[submodule "TechTheTime-Shared"]
+	path = TechTheTime-Shared
+	url = git@github.com:Club-INTech/TechTheTime-Shared.git
+	branch = master
