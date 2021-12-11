@@ -47,6 +47,12 @@
 									<listOptionValue builtIn="false" value="../Drivers/STM32G4xx_HAL_Driver/Inc/Legacy"/>
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Device/ST/STM32G4xx/Include"/>
 									<listOptionValue builtIn="false" value="../Drivers/CMSIS/Include"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/lib/Key-To-Order/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/lib/Unpadded/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/lib/config/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/lib/mp11/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/lib/static_assert/include}&quot;"/>
+									<listOptionValue builtIn="false" value="&quot;${workspace_loc:/lib/type_traits/include}&quot;"/>
 								</option>
 								<inputType id="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c.1554055987" superClass="com.st.stm32cube.ide.mcu.gnu.managedbuild.tool.c.compiler.input.c"/>
 							</tool>
