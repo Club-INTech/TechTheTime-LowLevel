@@ -25,10 +25,10 @@ Then go to `File > Import > Existing Projects into Workspace` and select the roo
 
 If you have an outdated version of the shared repository and you need to update it, just run the same command as configuration :
 ```
-./configure
+./update
 ```
 
-It will also update the libraries in the `lib` folder.
+It will also update the libraries in the `lib` folder and the needed Python packages.
 
 ### Pushing your modification of the shared library
 
