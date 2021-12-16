@@ -1,11 +1,17 @@
+import git
 import os
+import sys
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
 
+GIT_ROOT = git.Repo(
+    os.path.realpath(__file__), search_parent_directories=True
+).git.rev_parse("--show-toplevel")
+
 INCLUDE_DIRS = list(
     map(
-        lambda x: os.environ["VIRTUAL_ENV"] + "/../" + x,
+        lambda x: GIT_ROOT + "/" + x,
         [
             "TechTheTime-Shared",
             "lib/Key-To-Order/include",
