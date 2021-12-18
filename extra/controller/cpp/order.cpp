@@ -15,9 +15,9 @@ namespace py = pybind11;
 static k2o::dispatcher dispatcher{rpc::controller::keyring};
 
 static struct {
+  uint16_t time_us;
   uint16_t left_encoder_ticks;
   uint16_t right_encoder_ticks;
-  uint16_t time_us;
 } measure;
 
 //
@@ -58,8 +58,8 @@ PYBIND11_MODULE(controller_order, m) {
 //
 
 // Save the latest measure received
-void controller_report_measure(uint16_t left_encoder_ticks, uint16_t right_encoder_ticks, uint16_t time_us) {
+void controller_report_measure(uint16_t time_us, uint16_t left_encoder_ticks, uint16_t right_encoder_ticks) {
+  measure.time_us = time_us;
   measure.left_encoder_ticks = left_encoder_ticks;
   measure.right_encoder_ticks = right_encoder_ticks;
-  measure.time_us = time_us;
 }
