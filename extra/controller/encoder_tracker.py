@@ -11,27 +11,52 @@ import multiprocessing as mp
 
 
 class EncoderTracker:
+    """
+    Handles a pyplot display that tracks encoder measures
+    """
+
     def __init__(self, stream):
+        """
+        Hold a stream from which encoder measures will be received
+        """
         self._stream = stream
 
     def __enter__(self):
+        """
+        Start the tracking
+        """
         self._pipe, remote_pipe = mp.Pipe()
         self._process = mp.Process(
-            target=EncoderTrackerProcess(self._stream, remote_pipe), daemon=True
+            target=_EncoderTrackerProcess(self._stream, remote_pipe), daemon=True
         )
         self._process.start()
 
     def __exit__(self, *_):
+        """
+        End the tracking
+        """
         self._pipe.send(None)
         self._process.join()
 
 
-class EncoderTrackerProcess:
+class _EncoderTrackerProcess:
+    """
+    Plots encoder measures received from a given stream on a pyplot display
+    The display will consists the plots of the encoder measurers and a real-time cursor indicating the current time.
+    """
+
     def __init__(self, stream, pipe):
+        """
+        Hold a stream from which measures will be received and a pipe to control the current instance
+        """
         self._stream = stream
         self._pipe = pipe
 
     def __call__(self):
+        """
+        Start the tracking
+        The function will keep running until any data is received through the pipe
+        """
         plt.ion()
 
         self._setup()
@@ -47,6 +72,9 @@ class EncoderTrackerProcess:
             plt.pause(0.01)
 
     def _setup(self):
+        """
+        Setup the pyplot display
+        """
         self._fig = plt.figure()
 
         self._delta_ax = self._fig.add_subplot(1, 3, 2)
@@ -103,6 +131,9 @@ class EncoderTrackerProcess:
         ]
 
     def _plot_measure(self, measure):
+        """
+        Plot a new measure
+        """
         measure_data = [
             measure.left_encoder_ticks() - measure.right_encoder_ticks(),
             measure.left_encoder_ticks(),
@@ -121,6 +152,9 @@ class EncoderTrackerProcess:
             plot.set_xdata(np.append(plot.get_xdata(), datum))
 
     def _update_cursor(self):
+        """
+        Update the real-time cursor
+        """
         time = tm.time() - self._begin_time
 
         self._delta_ax.set_ylim(max(time - 6, 0), max(time + 1, 7))
