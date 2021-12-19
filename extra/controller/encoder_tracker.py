@@ -6,9 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as tsf
 import numpy as np
 import controller_order as order
-import random as rnd
 import time as tm
-import math
 import multiprocessing as mp
 
 

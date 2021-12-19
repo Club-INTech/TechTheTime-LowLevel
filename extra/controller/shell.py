@@ -4,7 +4,6 @@ Shell interface
 
 import time as tm
 import numpy as np
-import multiprocessing as mp
 
 from encoder_tracker import EncoderTracker
 
