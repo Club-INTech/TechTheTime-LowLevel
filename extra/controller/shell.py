@@ -6,7 +6,7 @@ import time as tm
 import numpy as np
 import multiprocessing as mp
 
-from encoder_tracker import EncoderTrackerProcess
+from encoder_tracker import EncoderTracker
 
 j = 0
 t = 0
@@ -41,6 +41,7 @@ class Stream:
         return True
 
 
-pipe, _ = mp.Pipe()
-encoder_tracker = EncoderTrackerProcess(Stream(), pipe)
-encoder_tracker()
+with EncoderTracker(Stream()) as encoder_tracker:
+    time = tm.time()
+    while tm.time() < time + 5:
+        pass

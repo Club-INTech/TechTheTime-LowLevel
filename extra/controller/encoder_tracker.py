@@ -12,6 +12,22 @@ import math
 import multiprocessing as mp
 
 
+class EncoderTracker:
+    def __init__(self, stream):
+        self._stream = stream
+
+    def __enter__(self):
+        self._pipe, remote_pipe = mp.Pipe()
+        self._process = mp.Process(
+            target=EncoderTrackerProcess(self._stream, remote_pipe), daemon=True
+        )
+        self._process.start()
+
+    def __exit__(self, *_):
+        self._pipe.send(None)
+        self._process.join()
+
+
 class EncoderTrackerProcess:
     def __init__(self, stream, pipe):
         self._stream = stream
