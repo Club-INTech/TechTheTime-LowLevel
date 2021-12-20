@@ -33,9 +33,15 @@ class Stream:
             0,
             t & 0xFF,
             (t >> 8) & 0xFF,
+            0,
+            0,
             int(100 * (np.sin(t * 1e-3) + 1)) + noise1,
             0,
+            0,
+            0,
             int(10 * (np.cos(t * 1e-3) + 1)) + noise2,
+            0,
+            0,
             0,
         ]
         x = L[j]
