@@ -7,6 +7,7 @@ import numpy as np
 import controller_order as order
 import random as random
 import matplotlib.pyplot as plt
+import cmd
 
 from encoder_tracker import EncoderTracker
 
@@ -49,14 +50,44 @@ class Stream:
         return True
 
 
-encoder_tracker = EncoderTracker()
-stream = Stream()
-with encoder_tracker:
-    time = tm.time()
-    while tm.time() < time + 15:
-        encoder_tracker.pipe.send(order.execute(stream.read, stream.write))
-        tm.sleep(1e-2)
+class Shell(cmd.Cmd):
+    prompt = "[shell] -- "
 
-plt.plot(encoder_tracker.time_us, encoder_tracker.left_ticks)
-plt.plot(encoder_tracker.time_us, encoder_tracker.right_ticks)
-plt.show()
+    def __init__(self):
+        super().__init__()
+        self._encoder_tracker = None
+
+    def do_track(self, _):
+        print("Arming the tracker...")
+        self._encoder_tracker = EncoderTracker()
+        old_prompt = self.prompt
+        self.prompt = "[shell > tracker] -- "
+
+        with self._encoder_tracker:
+            print("Tracker ready")
+            print("Tracker will be disarmed when tracking is over or by typing 'quit'")
+            self.cmdloop()
+
+        print("Tracker is disarmed")
+        self.prompt = old_prompt
+        self._encoder_tracker = None
+
+    def do_translate(self, _):
+        print("Commanding remote to start a translation...")
+
+        time = tm.time()
+        stream = Stream()
+        if self._encoder_tracker is not None:
+            while tm.time() < time + 3:
+                self._encoder_tracker.pipe.send(
+                    order.execute(stream.read, stream.write)
+                )
+                tm.sleep(1e-2)
+
+        return self._encoder_tracker is not None
+
+    def do_quit(self, _):
+        return True
+
+
+Shell().cmdloop()

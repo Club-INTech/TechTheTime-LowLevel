@@ -93,6 +93,8 @@ class _EncoderTrackerProcess:
         Start the tracking
         The function will keep running until any data is received through the pipe
         """
+
+        # Setup the pyplot display, notify the other end of the pipe and wait for a command or a measure
         self._setup()
         self._pipe.send(Status.READY)
         while not self._pipe.poll():
@@ -103,9 +105,7 @@ class _EncoderTrackerProcess:
         self._is_running = True
 
         while self._is_running:
-            plt.show()
-            plt.pause(0.001)
-
+            # Update the display with data from pipe
             while self._pipe.poll():
                 obj = self._pipe.recv()
                 {
@@ -113,6 +113,10 @@ class _EncoderTrackerProcess:
                     Command: lambda x: self._resolve_command(x),
                 }.get(type(obj))(obj)
             self._update_cursor()
+
+            # Refresh the display
+            plt.show()
+            plt.pause(0.001)
 
         # Get the lists of points for left and right ticks
         left_ticks_points = list(
@@ -130,7 +134,12 @@ class _EncoderTrackerProcess:
         left_ticks_axis = tuple(map(list, zip(*left_ticks_points)))
         right_ticks_axis = tuple(map(list, zip(*right_ticks_points)))
 
-        self._pipe.send((left_ticks_axis[0], left_ticks_axis[1], right_ticks_axis[1]))
+        # Send back the measures after checking if anything has been plot
+        self._pipe.send(
+            (left_ticks_axis[0], left_ticks_axis[1], right_ticks_axis[1])
+            if len(left_ticks_axis) == 2
+            else ([], [], [])
+        )
 
     def _setup(self):
         """
@@ -223,10 +232,11 @@ class _EncoderTrackerProcess:
 
         for ax, plot in zip(self._axes, self._plots):
             ax.set_ylim(max(time - 6, 0), max(time + 1, 7))
-            ax.set_xlim(
-                min(plot.get_xdata()[-1], ax.get_xlim()[0]),
-                max(plot.get_xdata()[-1], ax.get_xlim()[1]),
-            )
+            if plot.get_xdata().size > 0:
+                ax.set_xlim(
+                    min(plot.get_xdata()[-1], ax.get_xlim()[0]),
+                    max(plot.get_xdata()[-1], ax.get_xlim()[1]),
+                )
 
         for cursor in self._cursors:
             cursor.set_ydata([time, time])
