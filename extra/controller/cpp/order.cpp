@@ -14,7 +14,11 @@ namespace py = pybind11;
 
 static k2o::dispatcher dispatcher{rpc::controller::keyring};
 
-static struct {
+static struct Measure {
+  Measure() = default;
+  Measure(uint16_t time_us, uint16_t left_encoder_ticks, uint16_t right_encoder_ticks)
+      : time_us{time_us}, left_encoder_ticks{left_encoder_ticks}, right_encoder_ticks{right_encoder_ticks} {}
+
   uint16_t time_us;
   uint16_t left_encoder_ticks;
   uint16_t right_encoder_ticks;
@@ -36,18 +40,25 @@ static py::object execute(const std::function<upd::byte_t()> &serial_input,
 }
 
 PYBIND11_MODULE(controller_order, m) {
-  using measure_t = decltype(measure);
-
   m.doc() = R"(
     Order sending and receiving with K2O
   )";
   m.def("execute", &execute, R"(
     Execute a received order
   )");
-  py::class_<measure_t>(m, "Measure")
-      .def("left_encoder_ticks", [](const measure_t &measure) { return measure.left_encoder_ticks; })
-      .def("right_encoder_ticks", [](const measure_t &measure) { return measure.right_encoder_ticks; })
-      .def("time_us", [](const measure_t &measure) { return measure.time_us; })
+  py::class_<Measure>(m, "Measure")
+      .def("time_us", [](const Measure &measure) { return measure.time_us; })
+      .def("left_encoder_ticks", [](const Measure &measure) { return measure.left_encoder_ticks; })
+      .def("right_encoder_ticks", [](const Measure &measure) { return measure.right_encoder_ticks; })
+      .def(py::pickle(
+          [](const Measure &measure) {
+            return py::make_tuple(measure.time_us, measure.left_encoder_ticks, measure.right_encoder_ticks);
+          },
+          [](py::tuple py_tuple) {
+            if (py_tuple.size() != 3)
+              throw std::runtime_error("Couldn't unpickle a measure");
+            return Measure{py_tuple[0].cast<uint16_t>(), py_tuple[1].cast<uint16_t>(), py_tuple[2].cast<uint16_t>()};
+          }))
       .doc() = R"(
       Holds the values measured by remote at a given moment
     )";

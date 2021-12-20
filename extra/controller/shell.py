@@ -4,6 +4,7 @@ Shell interface
 
 import time as tm
 import numpy as np
+import controller_order as order
 
 from encoder_tracker import EncoderTracker
 
@@ -40,7 +41,10 @@ class Stream:
         return True
 
 
-with EncoderTracker(Stream()) as encoder_tracker:
+encoder_tracker = EncoderTracker()
+stream = Stream()
+with encoder_tracker:
     time = tm.time()
-    while tm.time() < time + 5:
-        pass
+    while tm.time() < time + 10:
+        encoder_tracker.pipe.send(order.execute(stream.read, stream.write))
+        tm.sleep(1e-2)

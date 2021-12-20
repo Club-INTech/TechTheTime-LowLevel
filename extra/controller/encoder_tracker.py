@@ -9,34 +9,63 @@ import controller_order as order
 import time as tm
 import multiprocessing as mp
 
+from enum import Enum
+
+TRACKER_SETUP_TIMEOUT_S = 3
+
 
 class EncoderTracker:
     """
     Handles a pyplot display that tracks encoder measures
     """
 
-    def __init__(self, stream):
+    def __init__(self):
         """
-        Hold a stream from which encoder measures will be received
+        Creates pipes to feed the tracker data
         """
-        self._stream = stream
+        self.pipe, self._remote_pipe = mp.Pipe()
+        self._process = mp.Process(
+            target=_EncoderTrackerProcess(pipe=self._remote_pipe), daemon=True
+        )
 
     def __enter__(self):
         """
         Start the tracking
         """
-        self._pipe, remote_pipe = mp.Pipe()
-        self._process = mp.Process(
-            target=_EncoderTrackerProcess(self._stream, remote_pipe), daemon=True
-        )
         self._process.start()
+        status = (
+            self.pipe.recv()
+            if self.pipe.poll(TRACKER_SETUP_TIMEOUT_S)
+            else Status.TIMEOUT
+        )
+        if status != Status.READY:
+            raise RuntimeError(
+                "Tracker failed initialization with status code " + str(status)
+            )
 
     def __exit__(self, *_):
         """
         End the tracking
         """
-        self._pipe.send(None)
+        self.pipe.send(Command.STOP)
         self._process.join()
+
+
+class Command(Enum):
+    """
+    Control commands for encoder tracking
+    """
+
+    STOP = 0
+
+
+class Status(Enum):
+    """
+    Status code for encoder tracking
+    """
+
+    READY = 0
+    TIMEOUT = 1
 
 
 class _EncoderTrackerProcess:
@@ -45,11 +74,10 @@ class _EncoderTrackerProcess:
     The display will consists the plots of the encoder measurers and a real-time cursor indicating the current time.
     """
 
-    def __init__(self, stream, pipe):
+    def __init__(self, pipe):
         """
         Hold a stream from which measures will be received and a pipe to control the current instance
         """
-        self._stream = stream
         self._pipe = pipe
 
     def __call__(self):
@@ -57,24 +85,34 @@ class _EncoderTrackerProcess:
         Start the tracking
         The function will keep running until any data is received through the pipe
         """
-        plt.ion()
-
         self._setup()
+        self._pipe.send(Status.READY)
+        while not self._pipe.poll():
+            pass
 
         self._begin_time = tm.time()
         self._remote_begin_time = None
+        self._is_running = True
 
-        while not self._pipe.poll():
-            if self._stream.skip_to_frame():
-                self._plot_measure(order.execute(self._stream.read, self._stream.write))
+        while self._is_running:
             self._update_cursor()
+
             plt.show()
-            plt.pause(0.01)
+            plt.pause(0.001)
+
+            while self._pipe.poll():
+                obj = self._pipe.recv()
+                {
+                    order.Measure: lambda x: self._plot_measure(x),
+                    Command: lambda x: self._resolve_command(x),
+                }.get(type(obj))(obj)
 
     def _setup(self):
         """
         Setup the pyplot display
         """
+        plt.ion()
+
         self._fig = plt.figure()
 
         self._delta_ax = self._fig.add_subplot(1, 3, 2)
@@ -108,19 +146,19 @@ class _EncoderTrackerProcess:
         )
 
         self._delta_plot = self._delta_ax.plot(
-            [], [], color="b", marker=".", linestyle="none"
+            [], [], color="b", marker=",", linestyle="none"
         )[0]
         self._left_ref_ticks_plot = self._left_ax.plot(
-            [], [], color="xkcd:lavender", marker=".", linestyle="none"
+            [], [], color="xkcd:lavender", marker=",", linestyle="none"
         )[0]
         self._left_ticks_plot = self._left_ax.plot(
-            [], [], color="g", marker=".", linestyle="none"
+            [], [], color="g", marker=",", linestyle="none"
         )[0]
         self._right_ref_ticks_plot = self._right_ax.plot(
-            [], [], color="xkcd:lavender", marker=".", linestyle="none"
+            [], [], color="xkcd:lavender", marker=",", linestyle="none"
         )[0]
         self._right_ticks_plot = self._right_ax.plot(
-            [], [], color="g", marker=".", linestyle="none"
+            [], [], color="g", marker=",", linestyle="none"
         )[0]
         self._plots = [
             self._delta_plot,
@@ -167,3 +205,14 @@ class _EncoderTrackerProcess:
         for text in self._timer_texts:
             text.set_y(time)
             text.set_text(str("%.2f" % time) + "s")
+
+    def _resolve_command(self, command):
+        """
+        Apply the effect of a received command
+        """
+        {
+            Command.STOP: self._stop,
+        }.get(command)()
+
+    def _stop(self):
+        self._is_running = False
