@@ -8,6 +8,7 @@ import numpy as np
 import controller_order as order
 import time as tm
 import multiprocessing as mp
+import operator as op
 
 from enum import Enum
 
@@ -49,6 +50,13 @@ class EncoderTracker:
         """
         self.pipe.send(Command.STOP)
         self._process.join()
+        obj = self.pipe.recv()
+        {tuple: lambda x: self._set_measures(*x)}.get(type(obj))(obj)
+
+    def _set_measures(self, time_us, left_ticks, right_ticks):
+        self.time_us = time_us
+        self.left_ticks = left_ticks
+        self.right_ticks = right_ticks
 
 
 class Command(Enum):
@@ -95,8 +103,6 @@ class _EncoderTrackerProcess:
         self._is_running = True
 
         while self._is_running:
-            self._update_cursor()
-
             plt.show()
             plt.pause(0.001)
 
@@ -106,6 +112,25 @@ class _EncoderTrackerProcess:
                     order.Measure: lambda x: self._plot_measure(x),
                     Command: lambda x: self._resolve_command(x),
                 }.get(type(obj))(obj)
+            self._update_cursor()
+
+        # Get the lists of points for left and right ticks
+        left_ticks_points = list(
+            zip(self._left_ticks_plot.get_ydata(), self._left_ticks_plot.get_xdata())
+        )
+        right_ticks_points = list(
+            zip(self._right_ticks_plot.get_ydata(), self._right_ticks_plot.get_xdata())
+        )
+
+        # Sort them to correct any lag
+        left_ticks_points.sort()
+        right_ticks_points.sort()
+
+        # Make tuples of list out of these lists of tuples
+        left_ticks_axis = tuple(map(list, zip(*left_ticks_points)))
+        right_ticks_axis = tuple(map(list, zip(*right_ticks_points)))
+
+        self._pipe.send((left_ticks_axis[0], left_ticks_axis[1], right_ticks_axis[1]))
 
     def _setup(self):
         """
@@ -116,26 +141,26 @@ class _EncoderTrackerProcess:
         self._fig = plt.figure()
 
         self._delta_ax = self._fig.add_subplot(1, 3, 2)
-        self._delta_ax.set_xlim(-200, 200)
+        self._delta_ax.set_xlim(-1, 1)
         self._delta_ax.set_ylim(0, 7)
         self._delta_ax.set_xlabel("Tick delta")
         self._delta_ax.set_ylabel("Time (s)")
         self._delta_ax.grid(color="xkcd:gunmetal", linestyle=":")
 
         self._left_ax = self._fig.add_subplot(1, 3, 1)
-        self._left_ax.set_xlim(-200, 200)
+        self._left_ax.set_xlim(0, 1)
         self._left_ax.set_ylim(0, 7)
         self._left_ax.set_xlabel("Left ticks")
         self._left_ax.set_ylabel("Time (s)")
         self._left_ax.grid(color="xkcd:gunmetal", linestyle=":")
 
         self._right_ax = self._fig.add_subplot(1, 3, 3)
-        self._right_ax.set_xlim(-200, 200)
+        self._right_ax.set_xlim(0, 1)
         self._right_ax.set_ylim(0, 7)
         self._right_ax.set_xlabel("Right ticks")
         self._right_ax.set_ylabel("Time (s)")
         self._right_ax.grid(color="xkcd:gunmetal", linestyle=":")
-        self._axes = [self._delta_ax, self._right_ax, self._left_ax]
+        self._axes = [self._delta_ax, self._left_ax, self._right_ax]
 
         self._cursors = list(
             map(lambda x: x.axhline(y=0, color="r", linestyle="--"), self._axes)
@@ -146,26 +171,24 @@ class _EncoderTrackerProcess:
         )
 
         self._delta_plot = self._delta_ax.plot(
-            [], [], color="b", marker=",", linestyle="none"
+            [], [], color="b", marker="s", linestyle="none"
         )[0]
         self._left_ref_ticks_plot = self._left_ax.plot(
-            [], [], color="xkcd:lavender", marker=",", linestyle="none"
-        )[0]
-        self._left_ticks_plot = self._left_ax.plot(
-            [], [], color="g", marker=",", linestyle="none"
+            [], [], color="xkcd:lavender", marker="s", linestyle="none"
         )[0]
         self._right_ref_ticks_plot = self._right_ax.plot(
-            [], [], color="xkcd:lavender", marker=",", linestyle="none"
+            [], [], color="xkcd:lavender", marker="s", linestyle="none"
+        )[0]
+        self._left_ticks_plot = self._left_ax.plot(
+            [], [], color="g", marker="s", linestyle="none"
         )[0]
         self._right_ticks_plot = self._right_ax.plot(
-            [], [], color="g", marker=",", linestyle="none"
+            [], [], color="g", marker="s", linestyle="none"
         )[0]
         self._plots = [
             self._delta_plot,
             self._left_ticks_plot,
-            self._left_ref_ticks_plot,
             self._right_ticks_plot,
-            self._right_ref_ticks_plot,
         ]
 
     def _plot_measure(self, measure):
@@ -176,8 +199,6 @@ class _EncoderTrackerProcess:
             measure.left_encoder_ticks() - measure.right_encoder_ticks(),
             measure.left_encoder_ticks(),
             measure.right_encoder_ticks(),
-            measure.right_encoder_ticks(),
-            measure.left_encoder_ticks(),
         ]
 
         if self._remote_begin_time is None:
@@ -189,15 +210,23 @@ class _EncoderTrackerProcess:
         for plot, datum in zip(self._plots, measure_data):
             plot.set_xdata(np.append(plot.get_xdata(), datum))
 
+        self._left_ref_ticks_plot.set_xdata(self._right_ticks_plot.get_xdata())
+        self._left_ref_ticks_plot.set_ydata(self._right_ticks_plot.get_ydata())
+        self._right_ref_ticks_plot.set_xdata(self._left_ticks_plot.get_xdata())
+        self._right_ref_ticks_plot.set_ydata(self._left_ticks_plot.get_ydata())
+
     def _update_cursor(self):
         """
         Update the real-time cursor
         """
         time = tm.time() - self._begin_time
 
-        self._delta_ax.set_ylim(max(time - 6, 0), max(time + 1, 7))
-        self._left_ax.set_ylim(max(time - 6, 0), max(time + 1, 7))
-        self._right_ax.set_ylim(max(time - 6, 0), max(time + 1, 7))
+        for ax, plot in zip(self._axes, self._plots):
+            ax.set_ylim(max(time - 6, 0), max(time + 1, 7))
+            ax.set_xlim(
+                min(plot.get_xdata()[-1], ax.get_xlim()[0]),
+                max(plot.get_xdata()[-1], ax.get_xlim()[1]),
+            )
 
         for cursor in self._cursors:
             cursor.set_ydata([time, time])
