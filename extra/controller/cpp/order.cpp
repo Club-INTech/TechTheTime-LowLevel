@@ -16,12 +16,12 @@ static k2o::dispatcher dispatcher{rpc::controller::keyring};
 
 static struct Measure {
   Measure() = default;
-  Measure(uint16_t time_us, uint16_t left_encoder_ticks, uint16_t right_encoder_ticks)
+  Measure(uint32_t time_us, uint32_t left_encoder_ticks, uint32_t right_encoder_ticks)
       : time_us{time_us}, left_encoder_ticks{left_encoder_ticks}, right_encoder_ticks{right_encoder_ticks} {}
 
-  uint16_t time_us;
-  uint16_t left_encoder_ticks;
-  uint16_t right_encoder_ticks;
+  uint32_t time_us;
+  uint32_t left_encoder_ticks;
+  uint32_t right_encoder_ticks;
 } measure;
 
 //
@@ -57,7 +57,7 @@ PYBIND11_MODULE(controller_order, m) {
           [](py::tuple py_tuple) {
             if (py_tuple.size() != 3)
               throw std::runtime_error("Couldn't unpickle a measure");
-            return Measure{py_tuple[0].cast<uint16_t>(), py_tuple[1].cast<uint16_t>(), py_tuple[2].cast<uint16_t>()};
+            return Measure{py_tuple[0].cast<uint32_t>(), py_tuple[1].cast<uint32_t>(), py_tuple[2].cast<uint32_t>()};
           }))
       .doc() = R"(
       Holds the values measured by remote at a given moment
@@ -69,7 +69,7 @@ PYBIND11_MODULE(controller_order, m) {
 //
 
 // Save the latest measure received
-void controller_report_measure(uint16_t time_us, uint16_t left_encoder_ticks, uint16_t right_encoder_ticks) {
+void controller_report_measure(uint32_t time_us, uint32_t left_encoder_ticks, uint32_t right_encoder_ticks) {
   measure.time_us = time_us;
   measure.left_encoder_ticks = left_encoder_ticks;
   measure.right_encoder_ticks = right_encoder_ticks;
