@@ -2,14 +2,18 @@
 Shell interface
 """
 
+import sys
 import time as tm
 import numpy as np
 import controller_order as order
 import random as random
 import matplotlib.pyplot as plt
 import cmd
+import argparse
 
+from remote_stream import RemoteStream
 from encoder_tracker import EncoderTracker
+from enum import Enum
 
 j = 0
 t = 0
@@ -61,39 +65,93 @@ class Shell(cmd.Cmd):
 
     def __init__(self):
         super().__init__()
-        self._encoder_tracker = None
+        self._mode = ShellMode.BASE
+        self._tracker = EncoderTracker()
+        self._remote = RemoteStream(
+            port="/dev/ttyUSB0", tracker_pipe=self._tracker.pipe
+        )
+
+    def do_sendraw(self, line):
+        parser = Parser(description="Send a raw input to remote")
+        parser.add_argument("input", nargs="+")
+        args = parser.parse_args(line)
+
+        self._remote.pipe.send((" ".join(args.input) + "\n").encode(encoding="UTF-8"))
 
     def do_track(self, _):
         print("Arming the tracker...")
-        self._encoder_tracker = EncoderTracker()
-        old_prompt = self.prompt
-        self.prompt = "[shell > tracker] -- "
-
-        with self._encoder_tracker:
+        with ShellModeGuard(self, ShellMode.TRACKER), self._tracker:
             print("Tracker ready")
             print("Tracker will be disarmed when tracking is over or by typing 'quit'")
-            self.cmdloop()
+            run_shell(self)
 
         print("Tracker is disarmed")
-        self.prompt = old_prompt
-        self._encoder_tracker = None
 
     def do_translate(self, _):
         print("Commanding remote to start a translation...")
-
-        time = tm.time()
-        stream = Stream()
-        if self._encoder_tracker is not None:
-            while tm.time() < time + 3:
-                self._encoder_tracker.pipe.send(
-                    order.execute(stream.read, stream.write)
-                )
-                tm.sleep(1e-2)
-
-        return self._encoder_tracker is not None
+        self._remote.pipe.send(order.Translate())
+        self._remote.pipe.recv()
+        return True if self._mode is ShellMode.TRACKER else False
 
     def do_quit(self, _):
         return True
 
 
-Shell().cmdloop()
+class ShellMode(Enum):
+    BASE = 0
+    TRACKER = 1
+
+
+class ShellModeGuard:
+    def __init__(self, shell, mode):
+        self._shell = shell
+        self._mode = mode
+
+    def __enter__(self):
+        if self._shell._mode is not ShellMode.BASE:
+            raise ShellException(
+                "Could not enter in mode "
+                + str(self._mode)
+                + " : shell is already in mode "
+                + str(self._shell._mode)
+            )
+        self._shell._mode = self._mode
+        Shell.prompt = {
+            ShellMode.TRACKER: "[shell > tracker] -- ",
+        }.get(self._mode)
+
+    def __exit__(self, *_):
+        self._shell._mode = ShellMode.BASE
+        Shell.prompt = "[shell] -- "
+
+
+class ShellException(BaseException):
+    def __init__(self, message=None):
+        self.message = message
+
+
+class Parser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        fname = sys._getframe(1).f_code.co_name[3:]
+        super().__init__(prog=fname, *args, **kwargs)
+
+    def parse_args(self, line):
+        try:
+            return super().parse_args(line.split())
+        except SystemExit as e:
+            raise ShellException()
+
+
+def run_shell(shell):
+    is_running = True
+    while is_running:
+        try:
+            shell.cmdloop()
+            is_running = False
+        except ShellException as e:
+            if e.message is not None:
+                print(e.message)
+
+
+if __name__ == "__main__":
+    run_shell(Shell())
