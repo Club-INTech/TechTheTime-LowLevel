@@ -1,7 +1,6 @@
-import git
 import os
-import sys
 
+import git
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
 

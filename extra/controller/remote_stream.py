@@ -2,11 +2,11 @@
 Remote communication interface
 """
 
-import serial as sr
-import controller_order as order
 import multiprocessing as mp
-
 from enum import Enum
+
+import controller_order as order
+import serial as sr
 
 
 class RemoteStream:

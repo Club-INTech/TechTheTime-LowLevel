@@ -2,15 +2,14 @@
 Encoder state tracking
 """
 
+import multiprocessing as mp
+import time as tm
+from enum import Enum
+
+import controller_order as order
 import matplotlib.pyplot as plt
 import matplotlib.transforms as tsf
 import numpy as np
-import controller_order as order
-import time as tm
-import multiprocessing as mp
-import operator as op
-
-from enum import Enum
 
 TRACKER_SETUP_TIMEOUT_S = 3
 

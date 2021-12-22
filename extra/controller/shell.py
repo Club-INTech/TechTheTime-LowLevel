@@ -2,20 +2,20 @@
 Shell interface
 """
 
+import argparse
+import cmd
+import itertools as it
+import random as random
 import sys
 import time as tm
-import numpy as np
-import controller_order as order
-import random as random
-import matplotlib.pyplot as plt
-import cmd
-import argparse
-import operator as op
-import itertools as it
-
-from remote_stream import RemoteStream, Command as RemoteCommand
-from encoder_tracker import EncoderTracker
 from enum import Enum
+
+import controller_order as order
+import matplotlib.pyplot as plt
+import numpy as np
+from encoder_tracker import EncoderTracker
+from remote_stream import Command as RemoteCommand
+from remote_stream import RemoteStream
 
 j = 0
 t = 0
