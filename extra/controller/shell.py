@@ -10,8 +10,10 @@ import random as random
 import matplotlib.pyplot as plt
 import cmd
 import argparse
+import operator as op
+import itertools as it
 
-from remote_stream import RemoteStream
+from remote_stream import RemoteStream, Command as RemoteCommand
 from encoder_tracker import EncoderTracker
 from enum import Enum
 
@@ -71,6 +73,14 @@ class Shell(cmd.Cmd):
             port="/dev/ttyUSB0", tracker_pipe=self._tracker.pipe
         )
 
+    def do_dump(self, _):
+        with DumpModeGuard(self):
+            print(
+                "Input from serial will be dump in the terminal between each user input"
+            )
+            print("Type 'quit' to disable serial dumping")
+            run_shell(self)
+
     def do_sendraw(self, line):
         parser = Parser(description="Send a raw input to remote")
         parser.add_argument("input", nargs="+")
@@ -80,7 +90,7 @@ class Shell(cmd.Cmd):
 
     def do_track(self, _):
         print("Arming the tracker...")
-        with ShellModeGuard(self, ShellMode.TRACKER), self._tracker:
+        with TrackerModeGuard(self), self._tracker:
             print("Tracker ready")
             print("Tracker will be disarmed when tracking is over or by typing 'quit'")
             run_shell(self)
@@ -100,6 +110,7 @@ class Shell(cmd.Cmd):
 class ShellMode(Enum):
     BASE = 0
     TRACKER = 1
+    DUMP = 2
 
 
 class ShellModeGuard:
@@ -118,11 +129,53 @@ class ShellModeGuard:
         self._shell._mode = self._mode
         Shell.prompt = {
             ShellMode.TRACKER: "[shell > tracker] -- ",
+            ShellMode.DUMP: "[shell > dump] -- ",
         }.get(self._mode)
+        self._set()
 
     def __exit__(self, *_):
+        self._restore()
         self._shell._mode = ShellMode.BASE
         Shell.prompt = "[shell] -- "
+
+
+class TrackerModeGuard(ShellModeGuard):
+    def __init__(self, *args, **kwargs):
+        super().__init__(mode=ShellMode.TRACKER, *args, **kwargs)
+
+    def _set(self):
+        pass
+
+    def _restore(self):
+        pass
+
+
+class DumpModeGuard(ShellModeGuard):
+    def __init__(self, *args, **kwargs):
+        super().__init__(mode=ShellMode.DUMP, *args, **kwargs)
+
+    def _set(self):
+        self._shell._remote.pipe.send(RemoteCommand.START_DUMP)
+        self._shell.postcmd = self._dump_serial
+
+    def _restore(self):
+        self._shell._remote.pipe.send(RemoteCommand.STOP_DUMP)
+        self._shell.postcmd = lambda *_: None
+
+    def _dump_serial(self, stop, _):
+        if self._shell._remote.pipe.poll(500e-3):
+            data = bytearray()
+            while self._shell._remote.pipe.poll(0):
+                data += self._shell._remote.pipe.recv()
+
+            hline = "-" * (6 + 3 * 16)
+            print(" " * 3 + "| " + bytes(range(16)).hex(" ") + " |")
+            print(hline)
+            for i, row in enumerate(it.zip_longest(*([iter(data)] * 16), fillvalue=0)):
+                print("{:02x} | ".format(i << 4) + bytes(row).hex(" ") + " |")
+            print(hline)
+
+        return stop
 
 
 class ShellException(BaseException):

@@ -6,6 +6,8 @@ import serial as sr
 import controller_order as order
 import multiprocessing as mp
 
+from enum import Enum
+
 
 class RemoteStream:
     def __init__(self, port, tracker_pipe):
@@ -20,6 +22,11 @@ class RemoteStream:
             daemon=True,
         )
         self._process.start()
+
+
+class Command(Enum):
+    START_DUMP = 0
+    STOP_DUMP = 1
 
 
 class _RemoteStreamProcess:
@@ -37,17 +44,31 @@ class _RemoteStreamProcess:
         self._read_pattern_counter = 0
         self._write_pattern_counter = 0
         self._inbuf = []
+        self._dump_mode = False
 
     def __call__(self):
         while True:
-            self._inbuf.append(self._serial.read_until(expected=order.HEADER))
+            serial_input = self._serial.read_until(expected=order.HEADER)
+
+            if serial_input != b"":
+                self._inbuf.append(serial_input)
+                if self._dump_mode:
+                    self._pipe.send(serial_input)
+
             if self._inbuf[-len(order.HEADER) :] == order.HEADER:
                 self._serial.write(order.HEADER)
                 obj = order.execute(self._read_and_unstuff, self._write_and_stuff)
                 {order.Measure: self._tracker_pipe.send}.get(type(obj))(obj)
                 self._inbuf = []
             if self._pipe.poll(0):
-                self._serial.write(self._pipe.recv())
+                obj = self._pipe.recv()
+                {
+                    Command: lambda obj: {
+                        Command.START_DUMP: self._enable_dumping,
+                        Command.STOP_DUMP: self._disable_dumping,
+                    }.get(obj)(),
+                    bytes: self._serial.write,
+                }.get(type(obj))(obj)
 
     def _read_and_unstuff(self):
         byte = self._serial.read()
@@ -68,3 +89,9 @@ class _RemoteStreamProcess:
             self._serial.write(0x00)
             self._write_pattern_counter = 0
         return byte
+
+    def _enable_dumping(self):
+        self._dump_mode = True
+
+    def _disable_dumping(self):
+        self._dump_mode = False
