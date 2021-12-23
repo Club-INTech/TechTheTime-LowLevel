@@ -29,6 +29,20 @@ class Command(Enum):
     STOP_DUMP = 1
 
 
+class Order:
+    def __init__(self, function, *args):
+        self._fname = function.__name__
+        self._args = args
+
+    def __call__(self, output_stream):
+        # Arbitrary code execution
+        # Evil as hell, but there is nothing to haxx to it's fine :)
+        # I shall confess my sin tomorrow
+        # By the way, it wouldn't have been necessary if pybind11 pickled C++ functions correctly
+        function = eval("order." + self._fname)
+        function(*self._args, output_stream)
+
+
 class _RemoteStreamProcess:
     def __init__(self, port, pipe, tracker_pipe):
         self._pipe = pipe
@@ -68,24 +82,31 @@ class _RemoteStreamProcess:
                         Command.STOP_DUMP: self._disable_dumping,
                     }.get(obj)(),
                     bytes: self._serial.write,
+                    Order: self._start_frame,
                 }.get(type(obj))(obj)
+
+    def _start_frame(self, obj):
+        for byte in order.HEADER:
+            self._write_and_stuff(byte)
+        obj(self._write_and_stuff)
 
     def _read_and_unstuff(self):
         byte = self._serial.read()
         self._read_pattern_counter = (
             self._read_pattern_counter + 1 if byte == order.HEADER[0] else 0
         )
-        if self._read_pattern_counter == len(order.HEADER[0]) - 1:
+        if self._read_pattern_counter == len(order.HEADER) - 1:
             self._serial.read()
             self._read_pattern_counter = 0
         return byte
 
     def _write_and_stuff(self, byte):
-        byte = self._serial.write(0x00)
+        print(byte)
+        byte = self._serial.write(byte)
         self._write_pattern_counter = (
             self._write_pattern_counter + 1 if byte == order.HEADER[0] else 0
         )
-        if self._write_pattern_counter == len(order.HEADER[0]) - 1:
+        if self._write_pattern_counter == len(order.HEADER) - 1:
             self._serial.write(0x00)
             self._write_pattern_counter = 0
         return byte

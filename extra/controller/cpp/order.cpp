@@ -43,10 +43,10 @@ static py::object execute(const std::function<upd::byte_t()> &serial_input,
 }
 
 template <size_t I, typename R, typename... Args, auto... Options>
-constexpr static auto make_commander(k2o::key<I, R(Args...), Options...>) {
-  return [](const std::tuple<Args...> &parameters, const std::function<void(upd::byte_t)> &serial_output) {
-    return std::apply(k2o::key<I, R(Args...), Options...>{}, parameters) >> serial_output;
-  };
+auto make_command(k2o::key<I, R(Args...), Options...> key) {
+  using key_t = decltype(key);
+  return
+      [](Args &&... args, const std::function<void(upd::byte_t)> &serial_output) { key_t{}(args...) >> serial_output; };
 }
 
 PYBIND11_MODULE(controller_order, m) {
@@ -56,9 +56,7 @@ PYBIND11_MODULE(controller_order, m) {
   m.def("execute", &execute, R"(
     Execute a received order
   )");
-  m.def("translate", make_commander(rpc::master::keyring.get<motion_set_translation_setpoint>()), R"(
-    Command remote to perform a translation
-  )");
+  m.def("translate", make_command(rpc::master::keyring.get<motion_set_translation_setpoint>()));
   m.attr("HEADER") = std::vector<uint8_t>{0xff, 0xff, 0xff};
   py::class_<Measure>(m, "Measure")
       .def("time_us", [](const Measure &measure) { return measure.time_us; })
