@@ -85,8 +85,7 @@ class Shell(cmd.Cmd):
         parser = Parser(description="Send a raw input to remote")
         parser.add_argument("input", nargs="+")
         args = parser.parse_args(line)
-
-        self._remote.pipe.send((" ".join(args.input) + "\n").encode(encoding="UTF-8"))
+        self._remote.pipe.send(bytes(map(lambda x: int("0x" + x, 16), args.input)))
 
     def do_track(self, _):
         print("Arming the tracker...")
@@ -99,8 +98,8 @@ class Shell(cmd.Cmd):
 
     def do_translate(self, _):
         print("Commanding remote to start a translation...")
-        self._remote.pipe.send(Order(order.translate, 500))
-        self._remote.pipe.recv()
+        self._remote.pipe.send(Order(order.translate, 0xFFFFFFFF))
+        # self._remote.pipe.recv()
         return True if self._mode is ShellMode.TRACKER else False
 
     def do_quit(self, _):
@@ -163,7 +162,8 @@ class DumpModeGuard(ShellModeGuard):
         self._shell.postcmd = lambda *_: None
 
     def _dump_serial(self, stop, _):
-        if self._shell._remote.pipe.poll(500e-3):
+        tm.sleep(500e-3)
+        if self._shell._remote.pipe.poll(0):
             data = bytearray()
             while self._shell._remote.pipe.poll(0):
                 data += self._shell._remote.pipe.recv()

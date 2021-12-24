@@ -42,7 +42,7 @@ static py::object execute(const std::function<upd::byte_t()> &serial_input,
   return py::cast(measure);
 }
 
-template <size_t I, typename R, typename... Args, auto... Options>
+template <uint16_t I, typename R, typename... Args, auto... Options>
 auto make_command(k2o::key<I, R(Args...), Options...> key) {
   using key_t = decltype(key);
   return

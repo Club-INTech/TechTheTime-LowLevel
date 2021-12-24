@@ -63,7 +63,6 @@ class _RemoteStreamProcess:
     def __call__(self):
         while True:
             serial_input = self._serial.read_until(expected=order.HEADER)
-
             if serial_input != b"":
                 self._inbuf.append(serial_input)
                 if self._dump_mode:
@@ -87,7 +86,7 @@ class _RemoteStreamProcess:
 
     def _start_frame(self, obj):
         for byte in order.HEADER:
-            self._write_and_stuff(byte)
+            self._serial.write(byte.to_bytes(1, "little"))
         obj(self._write_and_stuff)
 
     def _read_and_unstuff(self):
@@ -101,13 +100,12 @@ class _RemoteStreamProcess:
         return byte
 
     def _write_and_stuff(self, byte):
-        print(byte)
-        byte = self._serial.write(byte)
+        byte = self._serial.write(byte.to_bytes(1, "little"))
         self._write_pattern_counter = (
             self._write_pattern_counter + 1 if byte == order.HEADER[0] else 0
         )
         if self._write_pattern_counter == len(order.HEADER) - 1:
-            self._serial.write(0x00)
+            self._serial.write(b"\x00")
             self._write_pattern_counter = 0
         return byte
 
