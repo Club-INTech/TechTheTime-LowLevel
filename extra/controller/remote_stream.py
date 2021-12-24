@@ -29,6 +29,10 @@ class Command(Enum):
     STOP_DUMP = 1
 
 
+class Event(Enum):
+    MEASURE_IN = 0
+
+
 class Order:
     def __init__(self, function, *args):
         self._fname = function.__name__
@@ -57,22 +61,17 @@ class _RemoteStreamProcess:
         )
         self._read_pattern_counter = 0
         self._write_pattern_counter = 0
+        self._header_sentinel = 0
         self._inbuf = []
         self._dump_mode = False
 
     def __call__(self):
         while True:
-            serial_input = self._serial.read_until(expected=order.HEADER)
-            if serial_input != b"":
-                self._inbuf.append(serial_input)
-                if self._dump_mode:
-                    self._pipe.send(serial_input)
-
-            if self._inbuf[-len(order.HEADER) :] == order.HEADER:
+            if self._find_header():
                 self._serial.write(order.HEADER)
                 obj = order.execute(self._read_and_unstuff, self._write_and_stuff)
-                {order.Measure: self._tracker_pipe.send}.get(type(obj))(obj)
-                self._inbuf = []
+                {order.Measure: self._forward_measure}.get(type(obj))(obj)
+
             if self._pipe.poll(0):
                 obj = self._pipe.recv()
                 {
@@ -84,13 +83,26 @@ class _RemoteStreamProcess:
                     Order: self._start_frame,
                 }.get(type(obj))(obj)
 
+    def _find_header(self):
+        while self._serial.in_waiting > 0:
+            byte = int.from_bytes(self._serial.read(), "little")
+            self._header_sentinel = (
+                self._header_sentinel + 1 if byte == order.HEADER[0] else 0
+            )
+            if self._dump_mode:
+                self._pipe.send(byte)
+            if self._header_sentinel == len(order.HEADER):
+                return True
+
+        return False
+
     def _start_frame(self, obj):
         for byte in order.HEADER:
             self._serial.write(byte.to_bytes(1, "little"))
         obj(self._write_and_stuff)
 
     def _read_and_unstuff(self):
-        byte = self._serial.read()
+        byte = int.from_bytes(self._serial.read(), "little")
         self._read_pattern_counter = (
             self._read_pattern_counter + 1 if byte == order.HEADER[0] else 0
         )
@@ -100,7 +112,7 @@ class _RemoteStreamProcess:
         return byte
 
     def _write_and_stuff(self, byte):
-        byte = self._serial.write(byte.to_bytes(1, "little"))
+        self._serial.write(byte.to_bytes(1, "little"))
         self._write_pattern_counter = (
             self._write_pattern_counter + 1 if byte == order.HEADER[0] else 0
         )
@@ -108,6 +120,10 @@ class _RemoteStreamProcess:
             self._serial.write(b"\x00")
             self._write_pattern_counter = 0
         return byte
+
+    def _forward_measure(self, measure):
+        self._tracker_pipe.send(measure)
+        self._pipe.send(Event.MEASURE_IN)
 
     def _enable_dumping(self):
         self._dump_mode = True

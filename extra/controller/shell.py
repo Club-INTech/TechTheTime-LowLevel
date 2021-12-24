@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from encoder_tracker import EncoderTracker
 from remote_stream import Command as RemoteCommand
+from remote_stream import Event as RemoteEvent
 from remote_stream import Order, RemoteStream
 
 j = 0
@@ -99,7 +100,9 @@ class Shell(cmd.Cmd):
     def do_translate(self, _):
         print("Commanding remote to start a translation...")
         self._remote.pipe.send(Order(order.translate, 0xFFFFFFFF))
-        # self._remote.pipe.recv()
+        while self._remote.pipe.poll(100e-3):
+            self._remote.pipe.recv()
+
         return True if self._mode is ShellMode.TRACKER else False
 
     def do_quit(self, _):
