@@ -24,14 +24,14 @@ class EncoderTracker:
         Creates pipes to feed the tracker data
         """
         self.pipe, self._remote_pipe = mp.Pipe()
-        self._process = mp.Process(
-            target=_EncoderTrackerProcess(pipe=self._remote_pipe), daemon=True
-        )
 
     def __enter__(self):
         """
         Start the tracking
         """
+        self._process = mp.Process(
+            target=_EncoderTrackerProcess(pipe=self._remote_pipe), daemon=True
+        )
         self._process.start()
         status = (
             self.pipe.recv()
