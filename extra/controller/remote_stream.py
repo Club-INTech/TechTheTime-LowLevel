@@ -3,6 +3,7 @@ Remote communication interface
 """
 
 import multiprocessing as mp
+import time as tm
 from enum import Enum
 
 import controller_order as order
@@ -27,10 +28,12 @@ class RemoteStream:
 class Command(Enum):
     START_DUMP = 0
     STOP_DUMP = 1
+    START_MEASURE_FORWARDING = 2
+    STOP_MEASURE_FORWARDING = 3
 
 
 class Event(Enum):
-    MEASURE_IN = 0
+    MEASURE_KEEPALIVE = 0
 
 
 class Order:
@@ -64,6 +67,8 @@ class _RemoteStreamProcess:
         self._header_sentinel = 0
         self._inbuf = []
         self._dump_mode = False
+        self._must_forward_measure = False
+        self._latest_keepalive_date = 0
 
     def __call__(self):
         while True:
@@ -78,6 +83,8 @@ class _RemoteStreamProcess:
                     Command: lambda obj: {
                         Command.START_DUMP: self._enable_dumping,
                         Command.STOP_DUMP: self._disable_dumping,
+                        Command.START_MEASURE_FORWARDING: self._enable_measure_forwarding,
+                        Command.STOP_MEASURE_FORWARDING: self._disable_measure_forwarding,
                     }.get(obj)(),
                     bytes: self._serial.write,
                     Order: self._start_frame,
@@ -92,6 +99,7 @@ class _RemoteStreamProcess:
             if self._dump_mode:
                 self._pipe.send(byte)
             if self._header_sentinel == len(order.HEADER):
+                self._header_sentinel = 0
                 return True
 
         return False
@@ -122,11 +130,20 @@ class _RemoteStreamProcess:
         return byte
 
     def _forward_measure(self, measure):
-        self._tracker_pipe.send(measure)
-        self._pipe.send(Event.MEASURE_IN)
+        if self._must_forward_measure:
+            self._tracker_pipe.send(measure)
+            if self._latest_keepalive_date + 500e-3 < tm.time():
+                self._latest_keepalive_date = tm.time()
+                self._pipe.send(Event.MEASURE_KEEPALIVE)
 
     def _enable_dumping(self):
         self._dump_mode = True
 
     def _disable_dumping(self):
         self._dump_mode = False
+
+    def _enable_measure_forwarding(self):
+        self._must_forward_measure = True
+
+    def _disable_measure_forwarding(self):
+        self._must_forward_measure = False

@@ -98,9 +98,11 @@ class Shell(cmd.Cmd):
         print("Tracker is disarmed")
 
     def do_translate(self, _):
+        while self._remote.pipe.poll(0):
+            self._remote.pipe.recv()
         print("Commanding remote to start a translation...")
-        self._remote.pipe.send(Order(order.translate, 0xFFFFFFFF))
-        while self._remote.pipe.poll(100e-3):
+        self._remote.pipe.send(Order(order.translate, 0xEEEEEEEE))
+        while self._remote.pipe.poll(1):
             self._remote.pipe.recv()
 
         return True if self._mode is ShellMode.TRACKER else False
@@ -146,10 +148,10 @@ class TrackerModeGuard(ShellModeGuard):
         super().__init__(mode=ShellMode.TRACKER, *args, **kwargs)
 
     def _set(self):
-        pass
+        self._shell._remote.pipe.send(RemoteCommand.START_MEASURE_FORWARDING)
 
     def _restore(self):
-        pass
+        self._shell._remote.pipe.send(RemoteCommand.STOP_MEASURE_FORWARDING)
 
 
 class DumpModeGuard(ShellModeGuard):
