@@ -1,6 +1,7 @@
 **
 !.gitignore
 !cpp
+!utility
 !**.py
 !**.cpp
 !**.toml

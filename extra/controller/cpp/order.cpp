@@ -49,19 +49,19 @@ auto make_command(k2o::key<I, R(Args...), Options...> key) {
       [](Args &&... args, const std::function<void(upd::byte_t)> &serial_output) { key_t{}(args...) >> serial_output; };
 }
 
-PYBIND11_MODULE(controller_order, m) {
+PYBIND11_MODULE(controller_rpc, m) {
   m.doc() = R"(
     Order sending and receiving with K2O
   )";
-  m.def("execute", &execute, R"(
+  m.def("execute", execute, R"(
     Execute a received order
   )");
   m.def("translate", make_command(rpc::master::keyring.get<motion_set_translation_setpoint>()));
   m.attr("HEADER") = std::vector<uint8_t>{0xff, 0xff, 0xff};
   py::class_<Measure>(m, "Measure")
-      .def("time_us", [](const Measure &measure) { return measure.time_us; })
-      .def("left_encoder_ticks", [](const Measure &measure) { return measure.left_encoder_ticks; })
-      .def("right_encoder_ticks", [](const Measure &measure) { return measure.right_encoder_ticks; })
+      .def_property_readonly("time_us", [](const Measure &measure) { return measure.time_us; })
+      .def_property_readonly("left_encoder_ticks", [](const Measure &measure) { return measure.left_encoder_ticks; })
+      .def_property_readonly("right_encoder_ticks", [](const Measure &measure) { return measure.right_encoder_ticks; })
       .def(py::pickle(
           [](const Measure &measure) {
             return py::make_tuple(measure.time_us, measure.left_encoder_ticks, measure.right_encoder_ticks);

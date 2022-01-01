@@ -4,19 +4,24 @@ Encoder state tracking
 
 import multiprocessing as mp
 import time as tm
+from ctypes import c_double
 from enum import Enum
 
-import controller_order as order
+import controller_rpc as rpc
 import matplotlib.pyplot as plt
 import matplotlib.transforms as tsf
 import numpy as np
+from utility.match import Match
 
 TRACKER_SETUP_TIMEOUT_S = 3
+REFRESH_DELAY_S = 0.001
 
 
-class EncoderTracker:
+class Tracker:
     """
     Handles a pyplot display that tracks encoder measures
+    The instances of this class expose a pipe to send measures to the process handling the pyplot display.
+    The process can be made ready and available to plot incoming measure by using the instances as context managers.
     """
 
     def __init__(self):
@@ -24,13 +29,18 @@ class EncoderTracker:
         Creates pipes to feed the tracker data
         """
         self.pipe, self._remote_pipe = mp.Pipe()
+        self._latest_measure_date_s = mp.Value(c_double, 0)
 
     def __enter__(self):
         """
         Start the tracking
         """
         self._process = mp.Process(
-            target=_EncoderTrackerProcess(pipe=self._remote_pipe), daemon=True
+            target=_TrackerProcess(
+                pipe=self._remote_pipe,
+                latest_measure_date_s=self._latest_measure_date_s,
+            ),
+            daemon=True,
         )
         self._process.start()
         status = (
@@ -49,10 +59,25 @@ class EncoderTracker:
         """
         self.pipe.send(Command.STOP)
         self._process.join()
-        obj = self.pipe.recv()
-        {tuple: lambda x: self._set_measures(*x)}.get(type(obj))(obj)
+        Match(self.pipe.recv()) & {tuple: lambda t: self._set_measures(*t)}
+
+    @property
+    def timeout_counter_s(self):
+        """
+        Time since the last received measure
+        """
+        return tm.time() - self._latest_measure_date_s.value
+
+    def reset_timeout_counter(self):
+        """
+        Reinitialize the timeout counter back to zero
+        """
+        self._latest_measure_date_s.value = tm.time()
 
     def _set_measures(self, time_us, left_ticks, right_ticks):
+        """
+        Save the measures sent by the process
+        """
         self.time_us = time_us
         self.left_ticks = left_ticks
         self.right_ticks = right_ticks
@@ -75,17 +100,18 @@ class Status(Enum):
     TIMEOUT = 1
 
 
-class _EncoderTrackerProcess:
+class _TrackerProcess:
     """
     Plots encoder measures received from a given stream on a pyplot display
     The display will consists the plots of the encoder measurers and a real-time cursor indicating the current time.
     """
 
-    def __init__(self, pipe):
+    def __init__(self, pipe, latest_measure_date_s):
         """
-        Hold a stream from which measures will be received and a pipe to control the current instance
+        Hold a pipe to control the current instance and a floating point reference to indicate the last time a measure was received
         """
         self._pipe = pipe
+        self._latest_measure_date_s = latest_measure_date_s
 
     def __call__(self):
         """
@@ -100,22 +126,21 @@ class _EncoderTrackerProcess:
             pass
 
         self._begin_time = tm.time()
-        self._remote_begin_time = None
+        self._remote_begin_time_s = None
         self._is_running = True
 
         while self._is_running:
             # Update the display with data from pipe
             while self._pipe.poll():
-                obj = self._pipe.recv()
-                {
-                    order.Measure: lambda x: self._plot_measure(x),
-                    Command: lambda x: self._resolve_command(x),
-                }.get(type(obj))(obj)
+                Match(self._pipe.recv()) & {
+                    rpc.Measure: self._plot_measure,
+                    Command: Match() & {Command.STOP: self._stop},
+                }
             self._update_cursor()
 
             # Refresh the display
             plt.show()
-            plt.pause(0.001)
+            plt.pause(REFRESH_DELAY_S)
 
         # Get the lists of points for left and right ticks
         left_ticks_points = list(
@@ -203,15 +228,17 @@ class _EncoderTrackerProcess:
         """
         Plot a new measure
         """
+        self._latest_measure_date_s.value = tm.time()
+
         measure_data = [
-            measure.left_encoder_ticks() - measure.right_encoder_ticks(),
-            measure.left_encoder_ticks(),
-            measure.right_encoder_ticks(),
+            measure.left_encoder_ticks - measure.right_encoder_ticks,
+            measure.left_encoder_ticks,
+            measure.right_encoder_ticks,
         ]
 
-        if self._remote_begin_time is None:
-            self._remote_begin_time = measure.time_us() * 1e-3
-        measure_timestamp = measure.time_us() * 1e-3 - self._remote_begin_time
+        if self._remote_begin_time_s is None:
+            self._remote_begin_time_s = measure.time_us * 1e-6
+        measure_timestamp = measure.time_us * 1e-6 - self._remote_begin_time_s
 
         for plot in self._plots:
             plot.set_ydata(np.append(plot.get_ydata(), measure_timestamp))
@@ -244,13 +271,8 @@ class _EncoderTrackerProcess:
             text.set_y(time)
             text.set_text(str("%.2f" % time) + "s")
 
-    def _resolve_command(self, command):
-        """
-        Apply the effect of a received command
-        """
-        {
-            Command.STOP: self._stop,
-        }.get(command)()
-
     def _stop(self):
+        """
+        Stop the display
+        """
         self._is_running = False

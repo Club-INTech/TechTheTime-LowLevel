@@ -26,10 +26,10 @@ INCLUDE_DIRS = list(
 print(INCLUDE_DIRS)
 
 setup(
-    name="controller-order",
+    name="controller-rpc",
     ext_modules=[
         Pybind11Extension(
-            name="controller_order",
+            name="controller_rpc",
             sources=["order.cpp"],
             extra_compile_args=["-std=c++17", "-ggdb"],
             include_dirs=INCLUDE_DIRS,
