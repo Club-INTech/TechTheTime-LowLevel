@@ -2,41 +2,251 @@
 Shell interface
 """
 
+import argparse
+import cmd
+import itertools as it
+import sys
+from enum import Enum
+
+import controller_rpc as rpc
 import matplotlib.pyplot as plt
 import numpy as np
-import controller_order as order
-import random as rnd
-
-j = 0
-
-
-def input_stream():
-    global j
-    L = [0, 0, int(rnd.random() * 10), 0, 0, 0]
-    x = L[j]
-    j += 1
-    j %= len(L)
-    return x
+import remote
+from tracker import Tracker
+from utility.match import Match
 
 
-def output_stream(x):
-    print(x)
+class Shell(cmd.Cmd):
+    """
+    Execute commands received from a specified input stream and output to a specified output stream
+    """
+
+    def __init__(self):
+        """
+        Open a serial port from communication with a remote device and initialize the tracker context manager
+        """
+        super().__init__()
+        self.prompt = "[shell] -- "
+        self._mode = ShellMode.BASE
+        self._tracker = Tracker()
+        self._remote = remote.Stream(
+            port="/dev/ttyUSB0", tracker_pipe=self._tracker.pipe
+        )
+
+    def do_dump(self, _):
+        """
+        Enable dump mode
+        In dump mode, every byte received from serial is dumped to the specified output stream after each command.
+        """
+        with DumpModeGuard(self):
+            print(
+                "Input from serial will be dump in the terminal between each user input"
+            )
+            print("Type 'quit' to disable serial dumping")
+            run_shell(self)
+
+    def do_sendraw(self, line):
+        """
+        Send a raw byte sequence to the remote device
+        """
+        parser = Parser(description="Send a raw input to remote")
+        parser.add_argument("input", nargs="+")
+        args = parser.parse_args(line)
+        self._remote.pipe.send(bytes(map(lambda x: int("0x" + x, 16), args.input)))
+
+    def do_track(self, _):
+        """
+        Arm the tracker
+        When a position measure will be received from the remote device, a pyplot display will appear ploting the position data.
+        """
+        print("Arming the tracker...")
+        with TrackerModeGuard(self), self._tracker:
+            print("Tracker ready")
+            print("Tracker will be disarmed when tracking is over or by typing 'quit'")
+            run_shell(self)
+
+        print("Tracker is disarmed")
+
+    def do_translate(self, _):
+        """
+        Command the remote device to perform a translation
+        """
+        while self._remote.pipe.poll():
+            self._remote.pipe.recv()
+        print("Commanding remote to start a translation...")
+        self._remote.pipe.send(remote.Order(rpc.translate, 0xFFFFFFFF))
+
+        self._tracker.reset_timeout_counter()
+        while self._tracker.timeout_counter_s < 500e-3:
+            pass
+
+        return True if self._mode is ShellMode.TRACKER else False
+
+    def do_quit(self, _):
+        """
+        Quit the current mode
+        If the shell is not in any mode, the shell will stop after this command.
+        """
+        return True
 
 
-plt.ion()
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.set_xlim(0, 100)
-ax.set_ylim(0, 10)
+class ShellMode(Enum):
+    """
+    Modes for the shell
+    """
 
-line = ax.plot([], [])[0]
+    BASE = 0
+    TRACKER = 1
+    DUMP = 2
 
-L = []
 
-for i in range(1, 100):
-    L.append(order.execute(input_stream, output_stream)[0])
+class ShellModeGuard:
+    """
+    Context manager to handle shell mode
+    When entering a context with a ShellModeGuard instance, the shell is configured for the specified mode.
+    When exiting the context, the base configuration of the shell is restored.
+    This is an abstract class, whose children must implement the _set and _restore methods.
+    """
 
-    line.set_xdata(range(0, i))
-    line.set_ydata(np.array(L))
-    plt.show()
-    plt.pause(0.07)
+    def __init__(self, shell, mode):
+        """
+        Hold a reference to a shell and a mode
+        """
+        self._shell = shell
+        self._mode = mode
+
+    def __enter__(self):
+        """
+        Configure the shell for the specified mode
+        The _set abstract method is call after configuration.
+        """
+        if self._shell._mode is not ShellMode.BASE:
+            raise ShellException(
+                "Could not enter in mode "
+                + str(self._mode)
+                + " : shell is already in mode "
+                + str(self._shell._mode)
+            )
+        self._shell._mode = self._mode
+        self._shell.prompt = Match(self._mode) & {
+            ShellMode.TRACKER: "[shell > tracker] -- ",
+            ShellMode.DUMP: "[shell > dump] -- ",
+        }
+        self._set()
+
+    def __exit__(self, *_):
+        """
+        Restore the shell configuration
+        The _restore abstract method is call before restoration.
+        """
+        self._restore()
+        self._shell._mode = ShellMode.BASE
+        self._shell.prompt = "[shell] -- "
+
+
+class TrackerModeGuard(ShellModeGuard):
+    """
+    Configures the remote device interface for position tracking
+    Within the current context, the remote device interface will be sending every measure received from the remote device through its tracker pipe.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(mode=ShellMode.TRACKER, *args, **kwargs)
+
+    def _set(self):
+        self._shell._remote.pipe.send(remote.Command.START_MEASURE_FORWARDING)
+
+    def _restore(self):
+        self._shell._remote.pipe.send(remote.Command.STOP_MEASURE_FORWARDING)
+
+
+class DumpModeGuard(ShellModeGuard):
+    """
+    Configures the remote device interface for dumping received data and hook a post-command callback to the shell to dump the data to the specified output stream
+    The byte sequences received from the remote device will be received through its control pipe.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(mode=ShellMode.DUMP, *args, **kwargs)
+
+    def _set(self):
+        self._shell._remote.pipe.send(remote.Command.START_DUMP)
+        self._shell.precmd = self._empty_remote_pipe
+        self._shell.postcmd = self._dump_remote
+
+    def _restore(self):
+        self._shell._remote.pipe.send(remote.Command.STOP_DUMP)
+        self._shell.precmd = lambda line: line
+        self._shell.postcmd = lambda stop, _: stop
+
+    def _empty_remote_pipe(self, line):
+        """
+        Completely empty the remote to pipe
+        """
+        while self._shell._remote.pipe.poll():
+            self._shell._remote.pipe.recv()
+
+        return line
+
+    def _dump_remote(self, stop, _):
+        """
+        Output the byte sequence dumped by the remote device interface to the specified output stream
+        The shell will capture the data dumped by the interface until a given keepalive timeout is reached.
+        Any data received during the capture period will be displayed.
+        """
+
+        data = bytearray()
+        while self._shell._remote.pipe.poll(500e-3):
+            data += self._shell._remote.pipe.recv()
+
+        if data != b"":
+            hline = "-" * (6 + 3 * 16)
+            print(" " * 3 + "| " + bytes(range(16)).hex(" ") + " |")
+            print(hline)
+            for i, row in enumerate(it.zip_longest(*([iter(data)] * 16), fillvalue=0)):
+                print("{:02x} | ".format(i << 4) + bytes(row).hex(" ") + " |")
+            print(hline)
+
+        return stop
+
+
+class ShellException(BaseException):
+    def __init__(self, message=None):
+        self.message = message
+
+
+class Parser(argparse.ArgumentParser):
+    """
+    Parse the command line arguments
+    This class derivated from argparse.ArgumentParser is adapted for parsing command line arguments passed to the shell.
+    """
+
+    def __init__(self, *args, **kwargs):
+        fname = sys._getframe(1).f_code.co_name[3:]
+        super().__init__(prog=fname, *args, **kwargs)
+
+    def parse_args(self, line):
+        try:
+            return super().parse_args(line.split())
+        except SystemExit as e:
+            raise ShellException()
+
+
+def run_shell(shell):
+    """
+    Run a shell session
+    ShellException instances does not terminate the shell, but any other exception does.
+    """
+
+    is_running = True
+    while is_running:
+        try:
+            shell.cmdloop()
+            is_running = False
+        except ShellException as e:
+            if e.message is not None:
+                print(e.message)
+
+
+if __name__ == "__main__":
+    run_shell(Shell())

@@ -2,9 +2,3 @@
 .mxproject
 .settings
 venv
-
-# Just add sources in controller
-extra/controller/cpp/*
-!extra/controller/cpp/*.cpp
-!extra/controller/cpp/*.toml
-!extra/controller/cpp/*.py
