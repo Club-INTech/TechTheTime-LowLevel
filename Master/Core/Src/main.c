@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "hl.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -75,7 +75,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  HL_Init(&huart2);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -94,11 +94,17 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  HL_Interrupt();
   while (1)
   {
+	HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	if (has_received_order) {
+		HL_Send_Measure();
+		HAL_Delay(1000);
+	}
   }
   /* USER CODE END 3 */
 }
