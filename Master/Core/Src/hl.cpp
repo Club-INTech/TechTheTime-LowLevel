@@ -34,7 +34,7 @@ static void write_byte(uint8_t byte) {
 
 static uint8_t read_byte() {
 	uint8_t byte;
-	while (HAL_UART_Receive(huart_ptr, &byte, 1, timeout) != HAL_OK);
+	while (HAL_UART_Receive(huart_ptr, &byte, 1, timeout) != HAL_OK)
 
 	if (byte == 0xff){
 		read_stuff_counter++;
@@ -56,19 +56,20 @@ extern "C" void HL_Init(UART_HandleTypeDef *handler_ptr) {
 	huart_ptr = handler_ptr;
 }
 
+static uint32_t i = 0;
 extern "C" void HL_Send_Measure(void) {
 	auto report_measure_key = rpc::controller::keyring.get<controller_report_measure>();
 	HAL_UART_Transmit(huart_ptr, header, sizeof(header), timeout);
-	report_measure_key(500, 40, 30) >> write_byte;
+	report_measure_key(i, 0, 0) >> write_byte;
+	i += 1000000ull;
 }
 
 extern "C" void HL_Interrupt(void) {
 	uint8_t header_counter = 0;
-	while (header_counter < 2) {
-		// uint8_t byte = 0x00;
-		uint8_t bytos =0x00;
-		while (HAL_UART_Receive(huart_ptr, &bytos, 1, timeout) != HAL_OK);
-		if (bytos == 0xff) {
+	while (header_counter < 3) {
+		uint8_t byte = 0x00;
+		while (HAL_UART_Receive(huart_ptr, &byte, 1, timeout) != HAL_OK);
+		if (byte == 0xff) {
 			header_counter++;
 		}
 		else {
