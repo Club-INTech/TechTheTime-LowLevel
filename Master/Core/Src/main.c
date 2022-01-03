@@ -88,7 +88,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -104,30 +103,25 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+
   /* USER CODE BEGIN 2 */
-
-
-HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
-HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_ALL);
-
+  HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_ALL);
+  Motion_Init(&htim1, &htim2, &htim3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
   while (1)
   {
+	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
+	int64_t left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), 1, 1, 1);
+	int64_t right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), 1, 1, 1);
 
-
-	  float pos_L = actual_position(__HAL_TIM_GET_COUNTER(&htmi1));
-	  float pos_R = actual_position(__HAL_TIM_GET_COUNTER(&htmi2));
-	  float alpha1 = Asservir_position(pos_R, pos_L, 0, 0, 0);
-	  float alpha2 = Asservir_position(pos_L, pos_R, 0, 0, 0);
-	  Forward1(alpha1);
-	  Forward2(alpha2);
-
-
+	// On met à jour les PWM aux moteurs
+	Motion_Update_Left_PWM(left_pwm_setpoint);
+	Motion_Update_Right_PWM(right_pwm_setpoint);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

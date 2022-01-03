@@ -1,63 +1,66 @@
 #include "motion.h"
+
 #include <math.h>
+
+static TIM_HandleTypeDef *left_encoder_handler = NULL;
+static TIM_HandleTypeDef *right_encoder_handler = NULL;
+static TIM_HandleTypeDef *pwm_handler = NULL;
 
 static int64_t error_I = 0;
 static int64_t previous_error = 0;
-static int64_t previous_tension = 0;
 
-void motion1(int64_t a)
+void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_right_encoder_handler, TIM_HandleTypeDef *_pwm_handler)
 {
-
-	if (a > 0) {
-		TIM3->CCR1 = a;
-	}
-
-	else {
-		TIM3->CCR2 = - a;
-	}
-
+	left_encoder_handler = _left_encoder_handler;
+	right_encoder_handler = _right_encoder_handler;
+	pwm_handler = _pwm_handler;
 }
 
-void motion2(int64_t a)
+uint32_t Motion_Get_Left_Ticks()
 {
-	if (a > 0) {
-		TIM3->CCR3 = a;
-
-	}
-	else {
-		TIM3->CCR4 = - a;
-	}
-
+	return __HAL_TIM_GET_COUNTER(left_encoder_handler);
 }
 
-
-
-
-int64_t Asservir_position(uint32_t b, uint32_t c, uint64_t kp, uint64_t kd, uint64_t ki)                  // b position désirée, c position actuelle (ici la position désirée est celle de la roue jumelle
+uint32_t Motion_Get_Right_Ticks()
 {
-	//float c = previous_tension * distance_max /  5;  -> quand on demande une distance                           // calcul de la position désirée
-	int64_t error_P = b - c;
+	return __HAL_TIM_GET_COUNTER(right_encoder_handler);
+}
+
+void Motion_Update_Left_PWM(int64_t pwm)
+{
+	if (pwm > 0) {
+		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_1, pwm);
+	}
+	else {
+		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_2, -pwm);
+	}
+}
+
+void Motion_Update_Right_PWM(int64_t pwm)
+{
+	if (pwm > 0) {
+		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_3, pwm);
+	}
+	else {
+		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_4, -pwm);
+	}
+}
+
+// b position désirée, c position actuelle (ici la position désirée est celle de la roue jumelle
+int64_t Motion_Compute_PID(uint32_t setpoint, uint32_t position, uint64_t kp, uint64_t kd, uint64_t ki)
+{
+	int64_t error_P = setpoint - position;
 	error_I += error_P;
 	int64_t error_D = error_P - previous_error;
 	previous_error = error_P;
 	int64_t pwm = kp * error_P + kd * error_D + ki * error_I ;
-	if (pwm > pow(2,32)- 1 ) {
-		return pow(2,32) -1;
+	if (pwm > pow(2,32) - 1 ) {
+		return pow(2,32) - 1;
 	}
-	else if (pwm < - pow(2,32) + 1){
-		return - pox (2,32) +1;
+	else if (pwm < -pow(2,32) + 1){
+		return -pow(2,32) + 1;
 	}
 	else {
 	    return pwm;
 	}
-
 }
-
-
-
-
-
-
-
-
-
