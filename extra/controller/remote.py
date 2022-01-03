@@ -3,12 +3,14 @@ Remote communication interface
 """
 
 import multiprocessing as mp
+import time as tm
 from enum import Enum
 
 import controller_rpc as rpc
 import serial as sr
 from utility.match import Match
 
+REFRESH_DELAY_S = 1e-3
 KEEPALIVE_DELAY_S = 500e-3
 
 
@@ -100,6 +102,7 @@ class _StreamProcess:
         Receive request from the remote device and handle command from the control pipe
         """
         while True:
+            tm.sleep(REFRESH_DELAY_S)
             if self._find_header():
                 self._serial.write(rpc.HEADER)
                 Match(rpc.execute(self._read_and_unstuff, self._write_and_stuff)) & {

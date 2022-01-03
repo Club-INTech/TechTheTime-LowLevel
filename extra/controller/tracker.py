@@ -14,7 +14,7 @@ import numpy as np
 from utility.match import Match
 
 TRACKER_SETUP_TIMEOUT_S = 3
-REFRESH_DELAY_S = 0.001
+REFRESH_DELAY_S = 1e-3
 
 
 class Tracker:
@@ -123,7 +123,7 @@ class _TrackerProcess:
         self._setup()
         self._pipe.send(Status.READY)
         while not self._pipe.poll():
-            pass
+            tm.sleep(REFRESH_DELAY_S)
 
         self._begin_time = tm.time()
         self._remote_begin_time_s = None

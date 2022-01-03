@@ -56,12 +56,12 @@ extern "C" void HL_Init(UART_HandleTypeDef *handler_ptr) {
 	huart_ptr = handler_ptr;
 }
 
-static uint32_t i = 0;
+static uint32_t the_counter = 0;
 extern "C" void HL_Send_Measure(void) {
 	auto report_measure_key = rpc::controller::keyring.get<controller_report_measure>();
 	HAL_UART_Transmit(huart_ptr, header, sizeof(header), timeout);
-	report_measure_key(i, 0, 0) >> write_byte;
-	i += 1000000ull;
+	report_measure_key(the_counter, 0, 0) >> write_byte;
+	the_counter += 1000000ull;
 }
 
 extern "C" void HL_Interrupt(void) {
