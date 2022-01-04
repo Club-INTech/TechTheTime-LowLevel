@@ -115,6 +115,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  HL_Interrupt();
   while (1)
   {
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
@@ -127,6 +128,10 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	if (has_received_order) {
+		HL_Send_Measure();
+		HAL_Delay(1000);
+	}
   }
   /* USER CODE END 3 */
 }
