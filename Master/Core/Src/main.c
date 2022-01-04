@@ -52,7 +52,7 @@ TIM_HandleTypeDef htim3;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+const uint32_t pwm_base = 1e5;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -103,6 +103,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
@@ -122,8 +123,8 @@ int main(void)
   	int64_t right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), 1, 0, 0);
 
   	// On met à jour les PWM aux moteurs
-  	Motion_Update_Left_PWM(left_pwm_setpoint);
-  	Motion_Update_Right_PWM(right_pwm_setpoint);
+  	Motion_Update_Left_PWM(left_pwm_setpoint + pwm_base);
+  	Motion_Update_Right_PWM(right_pwm_setpoint + pwm_base);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

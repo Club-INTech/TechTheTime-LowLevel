@@ -42,8 +42,10 @@ void Motion_Update_Right_PWM(int64_t pwm)
 {
  	if (pwm > 0) {
 		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_3, pwm);
+		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_4, 0);
 	}
 	else {
+		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_3, 0);
 		__HAL_TIM_SET_COMPARE(pwm_handler, TIM_CHANNEL_4, -pwm);
 	}
 }
