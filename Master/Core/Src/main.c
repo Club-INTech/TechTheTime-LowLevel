@@ -115,23 +115,18 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HL_Interrupt();
   while (1)
   {
-	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
-	int64_t left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), 1, 0, 0);
-	int64_t right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), 1, 0, 0);
+  	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
+  	int64_t left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), 1, 0, 0);
+  	int64_t right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), 1, 0, 0);
 
-	// On met à jour les PWM aux moteurs
-	Motion_Update_Left_PWM(left_pwm_setpoint);
-	Motion_Update_Right_PWM(right_pwm_setpoint);
+  	// On met à jour les PWM aux moteurs
+  	Motion_Update_Left_PWM(left_pwm_setpoint);
+  	Motion_Update_Right_PWM(right_pwm_setpoint);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	if (has_received_order) {
-		HL_Send_Measure();
-		HAL_Delay(1000);
-	}
   }
   /* USER CODE END 3 */
 }
