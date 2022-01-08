@@ -26,3 +26,6 @@
 	path = lib/type_traits
 	url = https://github.com/boostorg/type_traits
 	branch = master
+[submodule "lib/expected"]
+	path = lib/expected
+	url = https://github.com/TartanLlama/expected.git

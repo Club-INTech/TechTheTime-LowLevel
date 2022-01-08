@@ -94,17 +94,11 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HL_Interrupt();
   while (1)
   {
-	HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	if (has_received_order) {
-		HL_Send_Measure();
-		HAL_Delay(1000);
-	}
   }
   /* USER CODE END 3 */
 }
