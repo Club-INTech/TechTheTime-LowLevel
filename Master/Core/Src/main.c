@@ -118,13 +118,20 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-  	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
-  	int64_t left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), 1, 0, 0);
-  	int64_t right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), 1, 0, 0);
+	  uint32_t x = Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD);
+	  HAL_Delay(100);
 
-  	// On met à jour les PWM aux moteurs
-  	Motion_Update_Left_PWM(left_pwm_setpoint + pwm_base);
-  	Motion_Update_Right_PWM(right_pwm_setpoint + pwm_base);
+	  Motion_Translation_Forward(1000);
+  	/*
+  	 * En imaginant qu'on branche une manette de console
+  	 * HAL_GPIO_ReadPin ...
+  	 * if (... = 1 ) { Motion_translation  -> vérifier comment fonctionne une manette
+  	 * (un bouton pour le robot ou un bouton par roue ??)
+  	 *
+  	 */
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
