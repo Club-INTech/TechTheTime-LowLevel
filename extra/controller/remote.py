@@ -104,9 +104,9 @@ class _StreamProcess:
         while True:
             tm.sleep(REFRESH_DELAY_S)
             if self._find_header():
-                self._serial.write(rpc.HEADER)
-                Match(rpc.execute(self._read_and_unstuff, self._write_and_stuff)) & {
-                    rpc.Measure: self._forward_measure
+                Match(self._serial._read_and_unstuff()) & {
+                    rpc.REQUEST: self._handle_request,
+                    rpc.RESPONSE: lambda: None,
                 }
 
             if self._pipe.poll():
@@ -142,12 +142,22 @@ class _StreamProcess:
 
         return False
 
+    def _handle_request(self):
+        """
+        Handle an incoming request from the remote device
+        """
+        self._serial.write(rpc.HEADER)
+        self._write_and_stuff(rpc.RESPONSE)
+        Match(rpc.execute(self._read_and_unstuff, self._write_and_stuff)) & {
+            rpc.Measure: self._forward_measure
+        }
+
     def _start_frame(self, order):
         """
         Send a frame to call an order on the remote device
         """
-        for byte in rpc.HEADER:
-            self._serial.write(byte.to_bytes(1, "little"))
+        self._serial.write(rpc.HEADER)
+        self._write_and_stuff(rpc.REQUEST)
         order(self._write_and_stuff)
 
     def _read_and_unstuff(self):

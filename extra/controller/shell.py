@@ -35,7 +35,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
     Execute commands received from a specified input stream and output to a specified output stream
     """
 
-    def __init__(self):
+    def __init__(self, port):
         """
         Open a serial port from communication with a remote device and initialize the tracker context manager
         """
@@ -43,9 +43,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self.prompt = "[shell] -- "
         self._mode = ShellMode.BASE
         self._tracker = Tracker()
-        self._remote = remote.Stream(
-            port="/dev/ttyUSB0", tracker_pipe=self._tracker.pipe
-        )
+        self._remote = remote.Stream(port=port, tracker_pipe=self._tracker.pipe)
 
     def do_dump(self, line):
         """
@@ -64,9 +62,16 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Send a raw byte sequence to the remote device
         """
-        parser = Parser()
+        parser = Parser(
+            epilog="Example : 'sendraw aa bb cc' -> send the sequence '0xaa 0xbb 0xcc' to the remote device"
+        )
         parser.add_argument("input", nargs="+", help="Byte sequence to send")
         args = parser.parse_args(line)
+
+        if not all(map(lambda x: 0 <= int(x, base=16) < 256, args.input)):
+            raise ShellException(
+                "The byte sequence must be given in the following format: 'sendraw xx xx xx xx...' Where x are hexadecimal digits"
+            )
         self._remote.pipe.send(bytes(map(lambda x: int("0x" + x, 16), args.input)))
 
     def do_track(self, line):
@@ -298,4 +303,5 @@ def run_shell(shell):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("port")
-    run_shell(Shell(args.port))
+    args = parser.parse_args()
+    run_shell(Shell(port=args.port))
