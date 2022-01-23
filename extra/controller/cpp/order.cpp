@@ -12,6 +12,7 @@
 #include <order/controller.h>
 #include <order/motion.h>
 #include <rpc/controller.hpp>
+#include <rpc/def.hpp>
 #include <rpc/master.hpp>
 
 namespace py = pybind11;
@@ -58,6 +59,8 @@ PYBIND11_MODULE(controller_rpc, m) {
   )");
   m.def("translate", make_command(rpc::master::keyring.get<motion_set_translation_setpoint>()));
   m.attr("HEADER") = std::vector<uint8_t>{0xff, 0xff, 0xff};
+  m.attr("REQUEST") = uint8_t{rpc::REQUEST};
+  m.attr("RESPONSE") = uint8_t{rpc::RESPONSE};
   py::class_<Measure>(m, "Measure")
       .def_property_readonly("time_us", [](const Measure &measure) { return measure.time_us; })
       .def_property_readonly("left_encoder_ticks", [](const Measure &measure) { return measure.left_encoder_ticks; })

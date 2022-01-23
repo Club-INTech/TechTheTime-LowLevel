@@ -25,6 +25,13 @@ static const uint32_t timeout = 1000;
 static uint8_t rx_buf[RX_BUF_SIZE];
 static uint8_t read_stuff_counter = 0;
 static uint8_t write_stuff_counter=0;
+uint8_t indice =0;
+
+uint8_t byte = 0x00; //receive byte from HL_INTERRUPT
+uint8_t count = 0; //counts number of time you receive 0xff
+uint8_t get_header =0;
+
+
 
 static k2o::dispatcher dispatcher{rpc::master::keyring};
 static k2o::order *hanging_order = NULL;
@@ -61,28 +68,23 @@ static void HL_Write_Byte(uint8_t byte) {
 //
 
 void HL_Interrupt(UART_HandleTypeDef *) {
-	// Se charge de trouver une entête et de se placer au début d'une trame
-	// C'est la même logique que la fonction 'HL_Interrupt' en mode bloquant, sauf qu'il faut traiter les octets dès qu'ils sont reçus.
-	// Cette fonction doit être maintenu en tant qu'interruption tant qu'aucune entête complète n'a été trouvée.
-	// Lorsqu'une trame a été trouvée, la fonction 'HL_Interrupt_Get_Order' doit être appelé lorsque 2 octets ont été reçus pour réccupérer l'ordre à exécuter.
-	//
-	// ASTUCES :
-	//	- HAL_UART_Receive_IT(huart_ptr, rx_buf, 1) permet de rappeler la routine d'interruption lorsqu'un octet a été reçu et le place dans 'rx_buf'.
-	//	- HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, [pointeur vers fonction]) permet de changer la fonction appellée lorsque le nombre d'octets demandés a été reçus.
+	if (byte == rpc::header[0]) {
+
+		count++;
+		if (count < sizeof rpc::header) {
+			count = 0;
+			HAL_UART_Receive_IT(huart_ptr, rx_buf, 3);
+			HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, &HL_Interrupt_Get_Order);
+			return ;
+		}
+	} else {
+		count = 0;
+	}
+	HAL_UART_Receive_IT(huart_ptr, &byte, 1);
 }
 
 void HL_Interrupt_Get_Order(UART_HandleTypeDef *) {
-	// Réccupère l'ordre à appeller en fonction de la valeur reçu
-	// Un pointeur vers l'ordre doit être maintenu dans 'hanging_order'.
-	// A la fin de cette fonction, la fonction 'HL_Interrupt_Call_Order' doit être appelé à chaque octet reçu jusqu'à ce que suffisament d'octets soient reçus pour exécuter l'ordre
-	//
-	// ASTUCES :
-	//	- La syntaxe pour réccupérer l'ordre est un peu particulière :
-	//		dispatcher.get_order(read_byte).map([fonction en cas de succès]).map_error(HL_Reset_Interrupt);
-	//	  La fonction en question n'est appellée que lorsqu'un ordre valide a été réccupéré.
-	//	  Elle doit vérifier la signature suivante : void(k2o::order &order)
-	//	  En cas d'erreur, l'état de 'huart_ptr' est modifié en conséquence automatiquement (pas la peine donc de l'implémenter)
-	//	- Les trame de réponse sont ignorées (i.e. celle qui ne sont pas de type rpc::REQUEST).
+	// Réccupère l'ordre à appeler en fonction de la valeur reçue
 	auto read_byte = [ptr = rx_buf]() mutable {
 		if (*ptr == rpc::header[0]) {
 			read_stuff_counter++;
@@ -95,10 +97,51 @@ void HL_Interrupt_Get_Order(UART_HandleTypeDef *) {
 		}
 		return *ptr++;
 	};
+
+	auto handle_order = [](k2o::order &order) {
+			hanging_order = &order;
+			HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, &HL_Interrupt_Call_Order);
+			HAL_UART_Receive_IT(huart_ptr, &byte,1);
+	};
+
+	dispatcher.get_order(read_byte)
+			.map(handle_order)
+			.map_error(HL_Reset_Interrupt);
+	// Un pointeur vers l'ordre doit être maintenu dans 'hanging_order'.
+
+	// A la fin de cette fonction, la fonction 'HL_Interrupt_Call_Order' doit être appelé à chaque octet reçu jusqu'à ce que suffisament d'octets soient reçus pour exécuter l'ordre
+
+	//
+	// ASTUCES :
+	//	- La syntaxe pour réccupérer l'ordre est un peu particulière :
+	//		dispatcher.get_order(read_byte).map([fonction en cas de succès]).map_error(HL_Reset_Interrupt);
+	//	  La fonction en question n'est appellée que lorsqu'un ordre valide a été réccupéré.
+	//	  Elle doit vérifier la signature suivante : void(k2o::order &order)
+	//	  En cas d'erreur, l'état de 'huart_ptr' est modifiée en conséquence automatiquement (pas la peine donc de l'implémenter)
+	//	- Les trame de réponse sont ignorées (i.e. celle qui ne sont pas de type rpc::REQUEST).
 }
+
 
 void HL_Interrupt_Call_Order(UART_HandleTypeDef *) {
 	// Exécute 'hanging_order' avec les octets reçus
+	auto read_byte = [ptr = rx_buf]() mutable { return *ptr++; };
+	if (byte == 0xff){
+		count ++;
+	} else {
+		count = 0;
+	}
+	if (count == 3){
+		count =0;
+	} else {
+		rx_buf[indice]= byte;
+		indice ++;
+	}
+
+	if(indice == hanging_order->input_size()){
+		indice=0;
+		(*hanging_order)(read_byte, HL_Write_Byte);
+		HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, &HL_Interrupt_Call_Order);
+	}
 	// Une fois la fonction exécutée, la fonction 'HL_Interrupt' est réassignée en tant que routine d'interruption.
 	//
 	// ASTUCES :
@@ -107,12 +150,13 @@ void HL_Interrupt_Call_Order(UART_HandleTypeDef *) {
 	//	  Après cette ligne, les octets à envoyer sont stockés dans 'tx_buf'.
 	//  - Ne pas oublier d'envoyer l'entête avant la trame.
 	//	- Ne pas oublier d'insérer l'octet indiquant le type de la trame (i.e. rpc::RESPONSE).
-	auto read_byte = [ptr = rx_buf]() mutable { return *ptr++; };
+	HAL_UART_Receive_IT(huart_ptr, &byte,1);
 }
 
 void HL_Reset_Interrupt(size_t) {
 	read_stuff_counter = 0;
 	HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, HL_Interrupt);
+	HAL_UART_Receive_IT(huart_ptr, &byte, 1);
 }
 
 //
@@ -121,3 +165,4 @@ void HL_Reset_Interrupt(size_t) {
 
 extern "C" void motion_set_translation_setpoint(uint32_t) {
 }
+

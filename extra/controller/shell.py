@@ -6,6 +6,7 @@ import argparse
 import cmd
 import itertools as it
 import sys
+import textwrap
 from enum import Enum
 
 import controller_rpc as rpc
@@ -16,12 +17,25 @@ from tracker import Tracker
 from utility.match import Match
 
 
-class Shell(cmd.Cmd):
+class MetaShell(type):
+    def __new__(meta, name, bases, attrs):
+        new_attributes = map(
+            lambda fname: (
+                "help_" + fname[3:],
+                lambda self: getattr(self, fname)("-h"),
+            ),
+            filter(lambda name: name[:3] == "do_", attrs.keys()),
+        )
+        attrs.update({*new_attributes})
+        return super(MetaShell, meta).__new__(meta, name, bases, attrs)
+
+
+class Shell(cmd.Cmd, metaclass=MetaShell):
     """
     Execute commands received from a specified input stream and output to a specified output stream
     """
 
-    def __init__(self):
+    def __init__(self, port):
         """
         Open a serial port from communication with a remote device and initialize the tracker context manager
         """
@@ -30,14 +44,15 @@ class Shell(cmd.Cmd):
         self._mode = ShellMode.BASE
         self._tracker = Tracker()
         self._remote = remote.Stream(
-            port="/dev/ttyUSB0", tracker_pipe=self._tracker.pipe
+            port=port, tracker_pipe=self._tracker.pipe
         )
 
-    def do_dump(self, _):
+    def do_dump(self, line):
         """
         Enable dump mode
         In dump mode, every byte received from serial is dumped to the specified output stream after each command.
         """
+        Parser().parse_args(line)
         with DumpModeGuard(self):
             print(
                 "Input from serial will be dump in the terminal between each user input"
@@ -49,16 +64,24 @@ class Shell(cmd.Cmd):
         """
         Send a raw byte sequence to the remote device
         """
-        parser = Parser(description="Send a raw input to remote")
-        parser.add_argument("input", nargs="+")
+        parser = Parser(
+            epilog="Example : 'sendraw aa bb cc' -> send the sequence '0xaa 0xbb 0xcc' to the remote device"
+        )
+        parser.add_argument("input", nargs="+", help="Byte sequence to send")
         args = parser.parse_args(line)
+
+        if not all(map(lambda x: 0 <= int(x, base=16) < 256, args.input)):
+            raise ShellException(
+                "The byte sequence must be given in the following format: 'sendraw xx xx xx xx...' Where x are hexadecimal digits"
+            )
         self._remote.pipe.send(bytes(map(lambda x: int("0x" + x, 16), args.input)))
 
-    def do_track(self, _):
+    def do_track(self, line):
         """
         Arm the tracker
         When a position measure will be received from the remote device, a pyplot display will appear ploting the position data.
         """
+        Parser().parse_args(line)
         print("Arming the tracker...")
         with TrackerModeGuard(self), self._tracker:
             print("Tracker ready")
@@ -67,26 +90,51 @@ class Shell(cmd.Cmd):
 
         print("Tracker is disarmed")
 
-    def do_translate(self, _):
+    def do_translate(self, line):
         """
         Command the remote device to perform a translation
         """
+        units_scales = {"tick": 1}
+
+        parser = Parser()
+        parser.add_argument("distance", type=int, help="Length of the translation")
+        parser.add_argument(
+            "--unit",
+            "-u",
+            nargs="?",
+            choices=units_scales.keys(),
+            default="tick",
+            help="Unit in which 'distance' is given",
+        )
+        parser.add_argument(
+            "--timeout",
+            "-t",
+            type=float,
+            nargs="?",
+            default=500e-3,
+            help="Maximum delay between the reception of two measures from the remote device",
+        )
+        args = parser.parse_args(line)
+
+        distance = (Match(args.unit) & units_scales) * args.distance
+
         while self._remote.pipe.poll():
             self._remote.pipe.recv()
         print("Commanding remote to start a translation...")
-        self._remote.pipe.send(remote.Order(rpc.translate, 0xFFFFFFFF))
+        self._remote.pipe.send(remote.Order(rpc.translate, distance))
 
         self._tracker.reset_timeout_counter()
-        while self._tracker.timeout_counter_s < 500e-3:
+        while self._tracker.timeout_counter_s < args.timeout:
             pass
 
         return True if self._mode is ShellMode.TRACKER else False
 
-    def do_quit(self, _):
+    def do_quit(self, line):
         """
         Quit the current mode
         If the shell is not in any mode, the shell will stop after this command.
         """
+        Parser().parse_args(line)
         return True
 
 
@@ -223,7 +271,14 @@ class Parser(argparse.ArgumentParser):
 
     def __init__(self, *args, **kwargs):
         fname = sys._getframe(1).f_code.co_name[3:]
-        super().__init__(prog=fname, *args, **kwargs)
+        function = Shell.__dict__["do_" + fname]
+        super().__init__(
+            prog=fname,
+            description=textwrap.dedent(function.__doc__),
+            formatter_class=argparse.RawDescriptionHelpFormatter,
+            *args,
+            **kwargs
+        )
 
     def parse_args(self, line):
         try:
@@ -249,4 +304,7 @@ def run_shell(shell):
 
 
 if __name__ == "__main__":
-    run_shell(Shell())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("port")
+    args = parser.parse_args()
+    run_shell(Shell(port=args.port))
