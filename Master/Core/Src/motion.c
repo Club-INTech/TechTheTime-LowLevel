@@ -133,7 +133,8 @@ void Motion_Translation_Forward(Motion_Tick finalsetpoint)
     // Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
 	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), 1, 0, 0);
 	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), 1, 0, 0);
-	Motion_PWM translation_pwm_setpoint = 0; // TODO
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_FORWARD) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_FORWARD)) / 2;
+	Motion_PWM translation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, 1, 0, 0);
 
 	// On met à jour les PWM aux moteurs
 	Motion_Update_Left_PWM(alpha * translation_pwm_setpoint + ( 1 - alpha) * pwm_base + left_pwm_setpoint, MOTION_CHANNEL_FORWARD_LEFT, MOTION_CHANNEL_BACKWARD_LEFT);
@@ -147,7 +148,8 @@ void Motion_Translation_Backward(Motion_Tick finalsetpoint) {
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
 	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), 1, 0, 0);
 	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), 1, 0, 0);
-	Motion_PWM translation_pwm_setpoint = 0; // TODO
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD)) / 2;
+	Motion_PWM translation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, 1, 0, 0); // TODO
 
 	// On met à jour les PWM aux moteurs
 	Motion_Update_Left_PWM(alpha * translation_pwm_setpoint + (1 - alpha) * pwm_base + left_pwm_setpoint, MOTION_CHANNEL_BACKWARD_LEFT, MOTION_CHANNEL_FORWARD_LEFT);
@@ -161,7 +163,8 @@ void Motion_Rotation_clockwise(Motion_Tick finalsetpoint) {
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
 	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), 1, 0, 0);
 	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), 1, 0, 0);
-	Motion_PWM rotation_pwm_setpoint = 0; // TODO
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE)) / 2;
+	Motion_PWM rotation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, 1, 0, 0);
 
 	// On met à jour les PWM aux moteurs
 	Motion_Update_Left_PWM(alpha * rotation_pwm_setpoint + (1 - alpha) * pwm_base + left_pwm_setpoint, MOTION_CHANNEL_FORWARD_LEFT, MOTION_CHANNEL_BACKWARD_LEFT);
@@ -175,7 +178,8 @@ void Motion_Rotation_counter_clockwise(Motion_Tick finalsetpoint) {
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
 	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), 1, 0, 0);
 	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), 1, 0, 0);
-	Motion_PWM rotation_pwm_setpoint = 0; // TODO
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE)) / 2;
+	Motion_PWM rotation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, 1, 0, 0);
 
 	// On met à jour les PWM aux moteurs
 	Motion_Update_Left_PWM(alpha * rotation_pwm_setpoint + (1 - alpha) * pwm_base + left_pwm_setpoint, MOTION_CHANNEL_BACKWARD_LEFT, MOTION_CHANNEL_FORWARD_LEFT);
