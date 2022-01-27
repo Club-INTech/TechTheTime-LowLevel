@@ -11,6 +11,7 @@ import serial as sr
 from utility.match import Match
 
 REFRESH_DELAY_S = 1e-3
+SERIAL_TIMEOUT_S = 1e-3
 KEEPALIVE_DELAY_S = 500e-3
 
 
@@ -88,7 +89,7 @@ class _StreamProcess:
             bytesize=sr.EIGHTBITS,
             parity=sr.PARITY_NONE,
             stopbits=sr.STOPBITS_ONE,
-            timeout=0,
+            timeout=SERIAL_TIMEOUT_S,
         )
         self._read_pattern_counter = 0
         self._write_pattern_counter = 0
@@ -104,7 +105,7 @@ class _StreamProcess:
         while True:
             tm.sleep(REFRESH_DELAY_S)
             if self._find_header():
-                Match(self._serial._read_and_unstuff()) & {
+                Match(self._read_and_unstuff()) & {
                     rpc.REQUEST: self._handle_request,
                     rpc.RESPONSE: lambda: None,
                 }
