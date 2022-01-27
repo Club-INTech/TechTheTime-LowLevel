@@ -75,7 +75,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  HL_Init(&huart2);
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -89,22 +88,18 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  HL_Init(&huart2);
+
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HL_Interrupt();
   while (1)
   {
-	HAL_GPIO_TogglePin(GPIOB, LD2_Pin);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	if (has_received_order) {
-		HL_Send_Measure();
-		HAL_Delay(1000);
-	}
   }
   /* USER CODE END 3 */
 }

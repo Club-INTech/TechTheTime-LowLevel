@@ -43,7 +43,9 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self.prompt = "[shell] -- "
         self._mode = ShellMode.BASE
         self._tracker = Tracker()
-        self._remote = remote.Stream(port=port, tracker_pipe=self._tracker.pipe)
+        self._remote = remote.Stream(
+            port=port, tracker_pipe=self._tracker.pipe
+        )
 
     def do_dump(self, line):
         """
@@ -107,6 +109,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         parser.add_argument(
             "--timeout",
             "-t",
+            type=float,
             nargs="?",
             default=500e-3,
             help="Maximum delay between the reception of two measures from the remote device",

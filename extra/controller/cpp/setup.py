@@ -19,6 +19,7 @@ INCLUDE_DIRS = list(
             "lib/static_assert/include",
             "lib/mp11/include",
             "lib/type_traits/include",
+            "lib/expected/include",
         ],
     )
 )
