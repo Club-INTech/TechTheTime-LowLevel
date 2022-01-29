@@ -8,10 +8,18 @@
 static TIM_HandleTypeDef *left_encoder_handler = NULL;
 static TIM_HandleTypeDef *right_encoder_handler = NULL;
 static TIM_HandleTypeDef *pwm_handler = NULL;
+// static TIM_HandleTypeDef *htim_interrupt = NULL;
 
 static Motion_PWM error_I = 0;
 static Motion_PWM pwm_base = 0;
 static Motion_Tick previous_position = 0;
+static Motion_MovementType motion_arg = MOTION_MOVEMENT_TYPE_FORWARD;
+static Motion_Tick finalsetpoint_arg = 0;
+
+void Motion_Init_Arg(Motion_MovementType motion, Motion_Tick finalsetpoint) {
+	motion_arg = motion;
+	finalsetpoint_arg = finalsetpoint;
+}
 
 void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_right_encoder_handler, TIM_HandleTypeDef *_pwm_handler)
 {
@@ -25,6 +33,8 @@ void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_r
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_RIGHT);
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_LEFT);
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_RIGHT);
+//	htim_interrupt = htim_interrupt_;
+
 }
 
 Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType motion)
@@ -156,7 +166,7 @@ void Motion_Translation_Backward(Motion_Tick finalsetpoint) {
 	Motion_Update_Right_PWM(beta * translation_pwm_setpoint + (1 - beta) * pwm_base + right_pwm_setpoint, MOTION_CHANNEL_BACKWARD_RIGHT, MOTION_CHANNEL_FORWARD_RIGHT);
 }
 
-void Motion_Rotation_clockwise(Motion_Tick finalsetpoint) {
+void Motion_Rotation_Clockwise(Motion_Tick finalsetpoint) {
 	double alpha = Motion_PWM_Base_Left(finalsetpoint, MOTION_MOVEMENT_TYPE_CLOCKWISE);
 	double beta = Motion_PWM_Base_Right(finalsetpoint, MOTION_MOVEMENT_TYPE_CLOCKWISE);
 
@@ -171,7 +181,7 @@ void Motion_Rotation_clockwise(Motion_Tick finalsetpoint) {
 	Motion_Update_Right_PWM(beta * rotation_pwm_setpoint + (1 - beta) * pwm_base + right_pwm_setpoint, MOTION_CHANNEL_BACKWARD_RIGHT, MOTION_CHANNEL_FORWARD_RIGHT);
 }
 
-void Motion_Rotation_counter_clockwise(Motion_Tick finalsetpoint) {
+void Motion_Rotation_Counter_Clockwise(Motion_Tick finalsetpoint) {
 	double alpha = Motion_PWM_Base_Left(finalsetpoint, MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE);
 	double beta = Motion_PWM_Base_Right(finalsetpoint, MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE);
 
@@ -185,3 +195,26 @@ void Motion_Rotation_counter_clockwise(Motion_Tick finalsetpoint) {
 	Motion_Update_Left_PWM(alpha * rotation_pwm_setpoint + (1 - alpha) * pwm_base + left_pwm_setpoint, MOTION_CHANNEL_BACKWARD_LEFT, MOTION_CHANNEL_FORWARD_LEFT);
 	Motion_Update_Right_PWM(beta * rotation_pwm_setpoint + (1 - beta) * pwm_base + right_pwm_setpoint, MOTION_CHANNEL_FORWARD_RIGHT, MOTION_CHANNEL_BACKWARD_RIGHT);
 }
+
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+		  if (htim->Instance == pwm_handler->Instance)
+		  {
+			  switch(motion_arg) {
+			  case MOTION_MOVEMENT_TYPE_FORWARD:
+				  Motion_Translation_Forward(finalsetpoint_arg);
+			  break;
+			  case MOTION_MOVEMENT_TYPE_BACKWARD:
+				  Motion_Translation_Backward(finalsetpoint_arg);
+			  break;
+			  case MOTION_MOVEMENT_TYPE_CLOCKWISE:
+				  Motion_Rotation_Clockwise(finalsetpoint_arg);
+			  break;
+			  case MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE:
+				  Motion_Rotation_Counter_Clockwise(finalsetpoint_arg);
+			  break;
+			  default:
+			  break;
+			  }
+		  }
+	  }

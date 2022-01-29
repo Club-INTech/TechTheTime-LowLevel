@@ -104,7 +104,9 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim3);
   Motion_Init(&htim2, &htim4, &htim3);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -120,7 +122,10 @@ int main(void)
 
 	  HAL_Delay(100);
 
-	  Motion_Translation_Forward(10000);
+	  Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD,1000);
+
+
+
   	/*
   	 * En imaginant qu'on branche une manette de console
   	 * HAL_GPIO_ReadPin ...
@@ -134,6 +139,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
   }
   /* USER CODE END 3 */
 }

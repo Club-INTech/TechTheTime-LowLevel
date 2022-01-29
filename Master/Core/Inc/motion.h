@@ -21,6 +21,7 @@ typedef enum {
 	MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE
 } Motion_MovementType;
 
+void Motion_Init_Arg(Motion_MovementType, Motion_Tick);
 void Motion_Init(TIM_HandleTypeDef *, TIM_HandleTypeDef *, TIM_HandleTypeDef *);
 Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType);
 Motion_Tick Motion_Get_Right_Ticks(Motion_MovementType);
@@ -31,6 +32,7 @@ double Motion_PWM_Base_Right(Motion_Tick, Motion_MovementType);
 double Motion_PWM_Base_Left(Motion_Tick, Motion_MovementType);
 void Motion_Translation_Forward(Motion_Tick);
 void Motion_Translation_Backward(Motion_Tick);
-void Motion_Rotation_clockwise(Motion_Tick);
-void Motion_Rotation_counter_clockwise(Motion_Tick);
+void Motion_Rotation_Clockwise(Motion_Tick);
+void Motion_Rotation_Counter_Clockwise(Motion_Tick);
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *);
 
