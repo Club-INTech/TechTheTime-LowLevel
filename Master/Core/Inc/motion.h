@@ -21,13 +21,18 @@ typedef enum {
 	MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE
 } Motion_MovementType;
 
+typedef struct {
+	double kp, kd, ki;
+	Motion_Tick previous_position, sum_error;
+} Motion_PID_Profile;
+
 void Motion_Init_Arg(Motion_MovementType, Motion_Tick);
 void Motion_Init(TIM_HandleTypeDef *, TIM_HandleTypeDef *, TIM_HandleTypeDef *);
 Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType);
 Motion_Tick Motion_Get_Right_Ticks(Motion_MovementType);
 void Motion_Update_Left_PWM(Motion_PWM, Motion_Channel, Motion_Channel);
 void Motion_Update_Right_PWM(Motion_PWM, Motion_Channel, Motion_Channel);
-Motion_PWM Motion_Compute_PID(Motion_Tick, Motion_Tick, double, double, double);
+Motion_PWM Motion_Compute_PID(Motion_Tick, Motion_Tick, Motion_PID_Profile *);
 double Motion_PWM_Base_Right(Motion_Tick, Motion_MovementType);
 double Motion_PWM_Base_Left(Motion_Tick, Motion_MovementType);
 void Motion_Translation_Forward(Motion_Tick);

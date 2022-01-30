@@ -109,7 +109,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD, 1000);
+  Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD, 5000);
   while (1)
   {
     /* USER CODE END WHILE */
