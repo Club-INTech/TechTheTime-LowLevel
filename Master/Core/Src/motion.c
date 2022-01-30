@@ -4,14 +4,14 @@
 #include <stdlib.h>
 
 #define MOTION_PWM_MAX UINT16_MAX
+#define MOTION_ENCODER_OFFSET (3 * 1024)
 
 static TIM_HandleTypeDef *left_encoder_handler = NULL;
 static TIM_HandleTypeDef *right_encoder_handler = NULL;
 static TIM_HandleTypeDef *pwm_handler = NULL;
-// static TIM_HandleTypeDef *htim_interrupt = NULL;
 
 static Motion_PWM error_I = 0;
-static Motion_PWM pwm_base = 0;
+static Motion_PWM pwm_base = 1000;
 static Motion_Tick previous_position = 0;
 static Motion_MovementType motion_arg = MOTION_MOVEMENT_TYPE_FORWARD;
 static Motion_Tick finalsetpoint_arg = 0;
@@ -19,6 +19,21 @@ static Motion_Tick finalsetpoint_arg = 0;
 void Motion_Init_Arg(Motion_MovementType motion, Motion_Tick finalsetpoint) {
 	motion_arg = motion;
 	finalsetpoint_arg = finalsetpoint;
+
+	switch(motion) {
+	case MOTION_MOVEMENT_TYPE_FORWARD:
+		__HAL_TIM_SET_COUNTER(left_encoder_handler, MOTION_ENCODER_OFFSET);
+		__HAL_TIM_SET_COUNTER(right_encoder_handler, MOTION_ENCODER_OFFSET);
+		break;
+	case MOTION_MOVEMENT_TYPE_BACKWARD:
+		__HAL_TIM_SET_COUNTER(left_encoder_handler, UINT16_MAX - MOTION_ENCODER_OFFSET);
+		__HAL_TIM_SET_COUNTER(right_encoder_handler, UINT16_MAX - MOTION_ENCODER_OFFSET);
+		break;
+	default:
+		break;
+	}
+
+	return;
 }
 
 void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_right_encoder_handler, TIM_HandleTypeDef *_pwm_handler)
@@ -29,12 +44,11 @@ void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_r
 
 	HAL_TIM_Encoder_Start(left_encoder_handler, TIM_CHANNEL_ALL);
 	HAL_TIM_Encoder_Start(right_encoder_handler, TIM_CHANNEL_ALL);
+	HAL_TIM_Base_Start_IT(pwm_handler);
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_LEFT);
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_RIGHT);
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_LEFT);
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_RIGHT);
-//	htim_interrupt = htim_interrupt_;
-
 }
 
 Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType motion)
@@ -43,10 +57,10 @@ Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType motion)
 	switch ( motion ) {
 	// Dans le cas d'un mouvement en translation avant, on retourne la valeur du compteur telle quelle afin de gérer de longues distances
 	case MOTION_MOVEMENT_TYPE_FORWARD :
-		return counter_value;
+		return counter_value - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en translation arrière, on joue sur le fonctionnement du complément à 2 pour considérer la plage de valeur entre 0 et -(2^16 - 1)
 	case MOTION_MOVEMENT_TYPE_BACKWARD :
-		return ~counter_value + 1;
+		return (~counter_value + 1) - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en rotation, on interpréte la valeur du compteur comme un entier signé (c'est permis grâce au fonctionnement du complément à 2)
 	case MOTION_MOVEMENT_TYPE_CLOCKWISE :
 		return (int16_t) counter_value;
@@ -64,10 +78,10 @@ Motion_Tick Motion_Get_Right_Ticks(Motion_MovementType motion)
 	switch ( motion ) {
 	// Dans le cas d'un mouvement en translation avant, on retourne la valeur du compteur telle quelle afin de gérer de longues distances
 	case MOTION_MOVEMENT_TYPE_FORWARD :
-		return counter_value;
+		return counter_value - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en translation arrière, on joue sur le fonctionnement du complément à 2 pour considérer la plage de valeur entre 0 et -(2^16 - 1) et on retourne la valeur opposée
 	case MOTION_MOVEMENT_TYPE_BACKWARD :
-		return ~counter_value + 1;
+		return (~counter_value + 1) - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en rotation, on interpréte la valeur du compteur comme un entier signé (c'est permis grâce au fonctionnement du complément à 2)
 	case MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE :
 		return (int16_t) counter_value;
@@ -81,7 +95,7 @@ Motion_Tick Motion_Get_Right_Ticks(Motion_MovementType motion)
 
 void Motion_Update_Left_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Channel Channel_b)
 {
-	if (pwm > 0) {    // tim_channel_1, tim_channel_2
+	if (pwm > 0) {    // tim_channel_1, tim_cHAL_TIM_Base_Start_IT(hannel_2
 		__HAL_TIM_SET_COMPARE(pwm_handler, Channel_a, pwm);
 		__HAL_TIM_SET_COMPARE(pwm_handler, Channel_b, 0);
 	}
@@ -102,7 +116,6 @@ void Motion_Update_Right_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Ch
 		__HAL_TIM_SET_COMPARE(pwm_handler, Channel_b, -pwm);
 	}
 }
-
 
 Motion_PWM Motion_Compute_PID(Motion_Tick setpoint, Motion_Tick position, double kp, double kd, double ki)
 {
@@ -195,7 +208,6 @@ void Motion_Rotation_Counter_Clockwise(Motion_Tick finalsetpoint) {
 	Motion_Update_Left_PWM(alpha * rotation_pwm_setpoint + (1 - alpha) * pwm_base + left_pwm_setpoint, MOTION_CHANNEL_BACKWARD_LEFT, MOTION_CHANNEL_FORWARD_LEFT);
 	Motion_Update_Right_PWM(beta * rotation_pwm_setpoint + (1 - beta) * pwm_base + right_pwm_setpoint, MOTION_CHANNEL_FORWARD_RIGHT, MOTION_CHANNEL_BACKWARD_RIGHT);
 }
-
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		  if (htim->Instance == pwm_handler->Instance)

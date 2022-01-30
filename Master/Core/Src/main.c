@@ -104,38 +104,14 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim3);
-  Motion_Init(&htim2, &htim4, &htim3);
-
+  Motion_Init(&htim4, &htim2, &htim3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD, 1000);
   while (1)
   {
-	  uint32_t x = Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_FORWARD);
-	  uint32_t y = Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_FORWARD);
-	  uint16_t t1 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_1);
-	  uint16_t t2 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_2);
-	  uint16_t t3 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_3);
-	  uint16_t t4 = __HAL_TIM_GET_COMPARE(&htim3, TIM_CHANNEL_4);
-
-	  HAL_Delay(100);
-
-	  Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD,1000);
-
-
-
-  	/*
-  	 * En imaginant qu'on branche une manette de console
-  	 * HAL_GPIO_ReadPin ...
-  	 * if (... = 1 ) { Motion_translation  -> vérifier comment fonctionne une manette
-  	 * (un bouton pour le robot ou un bouton par roue ??)
-  	 *
-  	 */
-
-
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -266,9 +242,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 170-1;
+  htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
+  htim3.Init.Period = 10000;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
