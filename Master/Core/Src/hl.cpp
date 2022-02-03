@@ -1,4 +1,6 @@
-#include "hl.h"
+#include "hl.hpp"
+
+#include <utility>
 
 #include "stm32g4xx_hal_uart.h"
 
@@ -7,11 +9,9 @@
 #include <order/controller.h>
 #include <rpc/def.hpp>
 #include <rpc/master.hpp>
-#include <rpc/controller.hpp>
 
 #define RX_BUF_SIZE 128
 
-static void HL_Write_Byte(uint8_t);
 static void HL_Interrupt(UART_HandleTypeDef *);
 static void HL_Interrupt_Get_Order(UART_HandleTypeDef *);
 static void HL_Interrupt_Call_Order(UART_HandleTypeDef *);
@@ -42,15 +42,7 @@ extern "C" void HL_Init(UART_HandleTypeDef *handler_ptr) {
 	HL_Reset_Interrupt();
 }
 
-static uint32_t dummy_time_us = 0;
-extern "C" void HL_Send_Measure(void) {
-	auto report_measure_key = rpc::controller::keyring.get<controller_report_measure>();
-	HAL_UART_Transmit(huart_ptr, rpc::header, sizeof(rpc::header), timeout);
-	report_measure_key(dummy_time_us, 0, 0) >> HL_Write_Byte;
-	dummy_time_us += 1000000ull;
-}
-
-void HL_Write_Byte(uint8_t byte) {
+extern "C" void HL_Write_Byte(uint8_t byte) {
 	if (byte == 0xff){
 		write_stuff_counter++;
 	}
