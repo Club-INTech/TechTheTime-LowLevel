@@ -1,4 +1,3 @@
 #!/bin/sh
 
-git submodule update --remote --merge
-pip3 install -r requirement.txt
+git submodule update --remote TechTheTime-Shared
