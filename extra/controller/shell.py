@@ -13,6 +13,7 @@ import controller_rpc as rpc
 import matplotlib.pyplot as plt
 import numpy as np
 import remote
+import tracker as trk
 from tracker import Tracker
 from utility.match import Match
 
@@ -43,9 +44,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self.prompt = "[shell] -- "
         self._mode = ShellMode.BASE
         self._tracker = Tracker()
-        self._remote = remote.Stream(
-            port=port, tracker_pipe=self._tracker.pipe
-        )
+        self._remote = remote.Stream(port=port, tracker_pipe=self._tracker.pipe)
 
     def do_dump(self, line):
         """
@@ -81,8 +80,17 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Arm the tracker
         When a position measure will be received from the remote device, a pyplot display will appear ploting the position data.
         """
-        Parser().parse_args(line)
+        parser = Parser()
+        parser.add_argument(
+            "--show-record",
+            "-sr",
+            action="store_true",
+            help="Enables data display after tracking",
+        )
+        args = parser.parse_args(line)
+
         print("Arming the tracker...")
+        self._tracker.shows_record = args.show_record
         with TrackerModeGuard(self), self._tracker:
             print("Tracker ready")
             print("Tracker will be disarmed when tracking is over or by typing 'quit'")
@@ -127,6 +135,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         while self._tracker.timeout_counter_s < args.timeout:
             pass
 
+        self._tracker.pipe.send(trk.Setpoint(distance))
         return True if self._mode is ShellMode.TRACKER else False
 
     def do_quit(self, line):
@@ -203,9 +212,12 @@ class TrackerModeGuard(ShellModeGuard):
 
     def _set(self):
         self._shell._remote.pipe.send(remote.Command.START_MEASURE_FORWARDING)
+        self._shell._remote.pipe.send(remote.Order(rpc.set_mode, rpc.HubMode.TRACKER))
 
     def _restore(self):
         self._shell._remote.pipe.send(remote.Command.STOP_MEASURE_FORWARDING)
+        self._shell._remote.pipe.send(remote.Order(rpc.release_motor))
+        self._shell._remote.pipe.send(remote.Order(rpc.set_mode, rpc.HubMode.BASE))
 
 
 class DumpModeGuard(ShellModeGuard):

@@ -1,3 +1,8 @@
+extern "C" {
+
+#include "hl.h"
+
+} // extern "C"
 #include "hl.hpp"
 
 #include <utility>
@@ -19,20 +24,14 @@ static void HL_Reset_Interrupt(size_t = 0);
 
 static UART_HandleTypeDef *huart_ptr = NULL;
 
-static uint8_t response_header[] = {rpc::header[0], rpc::header[1], rpc::header[2], rpc::RESPONSE};
-static uint8_t byte_stuff = 0x00;
-static const uint32_t timeout = 1000;
-
 static uint8_t rx_buf[RX_BUF_SIZE];
-static uint8_t read_stuff_counter = 0;
-static uint8_t write_stuff_counter=0;
-uint8_t indice =0;
-
-uint8_t byte = 0x00; //receive byte from HL_INTERRUPT
-uint8_t count = 0; //counts number of time you receive 0xff
-uint8_t get_header =0;
-
-
+static uint8_t indice =0;
+static size_t read_stuff_counter = 0;
+static size_t write_stuff_counter = 0;
+static const uint32_t timeout = 1000;
+static uint8_t byte = 0x00; //receive byte from HL_INTERRUPT
+static uint8_t count = 0; //counts number of time you receive 0xff
+static uint8_t stuffing_byte = ~rpc::header[0];
 
 static k2o::dispatcher dispatcher{rpc::master::keyring};
 static k2o::order *hanging_order = NULL;
@@ -42,17 +41,25 @@ extern "C" void HL_Init(UART_HandleTypeDef *handler_ptr) {
 	HL_Reset_Interrupt();
 }
 
-extern "C" void HL_Write_Byte(uint8_t byte) {
-	if (byte == 0xff){
+void HL_Start_Frame(rpc::Frame_Type frame_type) {
+	auto type_byte = static_cast<uint8_t>(frame_type);
+
+	write_stuff_counter = 0;
+	HAL_UART_Transmit(huart_ptr, &stuffing_byte, 1, timeout);
+	HAL_UART_Transmit(huart_ptr, rpc::header, sizeof rpc::header, timeout);
+	HAL_UART_Transmit(huart_ptr, &type_byte, 1, timeout);
+}
+
+void HL_Write_Byte(upd::byte_t byte) {
+	if (byte == rpc::header[0]) {
 		write_stuff_counter++;
-	}
-	else {
-		write_stuff_counter=0;
+	} else {
+		write_stuff_counter = 0;
 	}
 	HAL_UART_Transmit(huart_ptr, &byte, 1, timeout);
-	if (write_stuff_counter == 3){
-		write_stuff_counter=0;
-		HAL_UART_Transmit(huart_ptr, &byte_stuff, 1, timeout);
+	if (write_stuff_counter == sizeof rpc::header - 1) {
+		write_stuff_counter = 0;
+		HAL_UART_Transmit(huart_ptr, &stuffing_byte, 1, timeout);
 	}
 }
 
@@ -62,7 +69,6 @@ extern "C" void HL_Write_Byte(uint8_t byte) {
 
 void HL_Interrupt(UART_HandleTypeDef *) {
 	if (byte == rpc::header[0]) {
-
 		count++;
 		if (count == sizeof rpc::header) {
 			count = 0;
@@ -92,10 +98,21 @@ void HL_Interrupt_Get_Order(UART_HandleTypeDef *) {
 	};
 
 	auto handle_order = [](k2o::order &order) {
-			hanging_order = &order;
-			HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, &HL_Interrupt_Call_Order);
-			HAL_UART_Receive_IT(huart_ptr, &byte,1);
+			if (order.input_size() > 0) {
+				hanging_order = &order;
+				HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, &HL_Interrupt_Call_Order);
+				HAL_UART_Receive_IT(huart_ptr, &byte, 1);
+			} else {
+				HL_Start_Frame(rpc::Frame_Type::RESPONSE);
+				order([]() { return uint8_t{}; }, HL_Write_Byte);
+				HL_Reset_Interrupt();
+			}
 	};
+
+	if (read_byte() != static_cast<uint8_t>(rpc::Frame_Type::REQUEST)) {
+		HL_Reset_Interrupt();
+		return;
+	}
 
 	dispatcher.get_order(read_byte)
 			.map(handle_order)
@@ -104,15 +121,12 @@ void HL_Interrupt_Get_Order(UART_HandleTypeDef *) {
 
 
 void HL_Interrupt_Call_Order(UART_HandleTypeDef *) {
-	// Exécute 'hanging_order' avec les octets reçus
-	auto read_byte = [ptr = rx_buf]() mutable { return *ptr++; };
-
 	if (byte == rpc::header[0]){
 		count ++;
 	} else {
 		count = 0;
 	}
-	if (count == sizeof rpc::header){
+	if (count == sizeof rpc::header - 1){
 		count = 0;
 	} else {
 		rx_buf[indice] = byte;
@@ -120,8 +134,9 @@ void HL_Interrupt_Call_Order(UART_HandleTypeDef *) {
 	}
 
 	if(indice == hanging_order->input_size()){
-		indice=0;
-		HAL_UART_Transmit(huart_ptr, response_header, sizeof response_header, timeout);
+		auto read_byte = [ptr = rx_buf]() mutable { return *ptr++; };
+
+		HL_Start_Frame(rpc::Frame_Type::RESPONSE);
 		(*hanging_order)(read_byte, HL_Write_Byte);
 		HL_Reset_Interrupt();
 	} else {
@@ -131,14 +146,7 @@ void HL_Interrupt_Call_Order(UART_HandleTypeDef *) {
 
 void HL_Reset_Interrupt(size_t) {
 	read_stuff_counter = 0;
+	indice = 0;
 	HAL_UART_RegisterCallback(huart_ptr, HAL_UART_RX_COMPLETE_CB_ID, HL_Interrupt);
 	HAL_UART_Receive_IT(huart_ptr, &byte, 1);
 }
-
-//
-// Order implementations
-//
-
-extern "C" void motion_set_translation_setpoint(uint32_t) {
-}
-

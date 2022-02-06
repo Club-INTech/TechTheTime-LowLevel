@@ -4,6 +4,7 @@ Remote communication interface
 
 import multiprocessing as mp
 import time as tm
+from collections import deque
 from enum import Enum
 
 import controller_rpc as rpc
@@ -97,6 +98,8 @@ class _StreamProcess:
         self._must_dump_serial = False
         self._must_forward_measure = False
         self._latest_keepalive_date_s = 0
+        self._serial_history = deque(50 * [0])
+        self._serial_history_index = 0
 
     def __call__(self):
         """
@@ -104,11 +107,19 @@ class _StreamProcess:
         """
         while True:
             tm.sleep(REFRESH_DELAY_S)
-            if self._find_header():
-                Match(self._read_and_unstuff()) & {
-                    rpc.REQUEST: self._handle_request,
-                    rpc.RESPONSE: lambda: None,
-                }
+            try:
+                if self._find_header():
+                    Match(rpc.FrameType(self._read_and_unstuff())) & {
+                        rpc.FrameType.REQUEST: self._handle_request,
+                        rpc.FrameType.RESPONSE: lambda: None,
+                    }
+            except Exception as e:
+                self._serial_history.rotate(-self._serial_history_index - 1)
+                self._serial_history_index = 0
+                print(e)
+                print(
+                    "Serial history : {}".format(bytearray(self._serial_history).hex())
+                )
 
             if self._pipe.poll():
                 Match(self._pipe.recv()) & {
@@ -147,8 +158,6 @@ class _StreamProcess:
         """
         Handle an incoming request from the remote device
         """
-        self._serial.write(rpc.HEADER)
-        self._write_and_stuff(rpc.RESPONSE)
         Match(rpc.execute(self._read_and_unstuff, self._write_and_stuff)) & {
             rpc.Measure: self._forward_measure
         }
@@ -158,14 +167,23 @@ class _StreamProcess:
         Send a frame to call an order on the remote device
         """
         self._serial.write(rpc.HEADER)
-        self._write_and_stuff(rpc.REQUEST)
+        self._write_and_stuff(rpc.FrameType.REQUEST)
         order(self._write_and_stuff)
+        self._write_and_stuff(0x0)
 
     def _read_and_unstuff(self):
         """
         Read the input from the remote device while byte unstuffing
         """
         byte = self._serial.read()
+
+        self._serial_history[self._serial_history_index] = int.from_bytes(
+            byte, "little"
+        )
+        self._serial_history_index = (self._serial_history_index + 1) % len(
+            self._serial_history
+        )
+
         byte_int = int.from_bytes(byte, "little")
         if self._must_dump_serial:
             self._pipe.send(byte)
@@ -181,7 +199,7 @@ class _StreamProcess:
         """
         Write to the remote device output while byte stuffing
         """
-        self._serial.write(byte_int.to_bytes(1, "little"))
+        self._serial.write(int(byte_int).to_bytes(1, "little"))
         self._write_pattern_counter = (
             self._write_pattern_counter + 1 if byte_int == rpc.HEADER[0] else 0
         )

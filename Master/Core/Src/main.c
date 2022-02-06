@@ -106,7 +106,7 @@ int main(void)
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HL_Init(&huart2);
-
+  Motion_Init(&htim2, &htim4, &htim3);
 
   /* USER CODE END 2 */
 

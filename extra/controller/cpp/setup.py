@@ -32,7 +32,7 @@ setup(
         Pybind11Extension(
             name="controller_rpc",
             sources=["order.cpp"],
-            extra_compile_args=["-std=c++17", "-ggdb"],
+            extra_compile_args=["-std=c++17", "-ggdb", "-fdiagnostics-color=always"],
             include_dirs=INCLUDE_DIRS,
         )
     ],

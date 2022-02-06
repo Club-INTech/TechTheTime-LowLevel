@@ -6,8 +6,9 @@
 
 #include <order/motion.h>
 
-#define MOTION_PWM_MAX UINT16_MAX
-#define MOTION_ENCODER_OFFSET (3 * 1024)
+#define MOTION_PWM_MAX 9000
+#define MOTION_ENCODER_OFFSET 5000
+#define MOTION_PWM_BASE (MOTION_PWM_MAX * MOTION_POWER_BASE)
 
 static TIM_HandleTypeDef *left_encoder_handler = NULL;
 static TIM_HandleTypeDef *right_encoder_handler = NULL;
@@ -40,7 +41,7 @@ static Motion_MovementType motion_arg = MOTION_MOVEMENT_TYPE_NONE;
 static Motion_Tick finalsetpoint_arg = 0;
 
 void Motion_Init_Arg(Motion_MovementType motion, Motion_Tick finalsetpoint) {
-	motion_arg = motion;
+	motion_arg = MOTION_MOVEMENT_TYPE_NONE;
 	finalsetpoint_arg = finalsetpoint;
 
 	left_profile.previous_position = 0;
@@ -63,8 +64,12 @@ void Motion_Init_Arg(Motion_MovementType motion, Motion_Tick finalsetpoint) {
 		__HAL_TIM_SET_COUNTER(right_encoder_handler, UINT16_MAX - MOTION_ENCODER_OFFSET);
 		break;
 	default:
+		__HAL_TIM_SET_COUNTER(left_encoder_handler, 0);
+		__HAL_TIM_SET_COUNTER(right_encoder_handler, 0);
 		break;
 	}
+
+	motion_arg = motion;
 }
 
 void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_right_encoder_handler, TIM_HandleTypeDef *_pwm_handler)
@@ -82,10 +87,10 @@ void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_r
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_RIGHT);
 }
 
-Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType motion)
+Motion_Tick Motion_Get_Left_Ticks(void)
 {
 	uint16_t counter_value = __HAL_TIM_GET_COUNTER(left_encoder_handler);
-	switch ( motion ) {
+	switch ( motion_arg ) {
 	// Dans le cas d'un mouvement en translation avant, on retourne la valeur du compteur telle quelle afin de gérer de longues distances
 	case MOTION_MOVEMENT_TYPE_FORWARD :
 		return counter_value - MOTION_ENCODER_OFFSET;
@@ -99,14 +104,14 @@ Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType motion)
 	case MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE :
 		return -((int16_t) counter_value);
 	default:
-		return 0;
+		return (int16_t) counter_value;
 	}
 }
 
-Motion_Tick Motion_Get_Right_Ticks(Motion_MovementType motion)
+Motion_Tick Motion_Get_Right_Ticks(void)
 {
 	uint16_t counter_value = __HAL_TIM_GET_COUNTER(right_encoder_handler);
-	switch ( motion ) {
+	switch ( motion_arg ) {
 	// Dans le cas d'un mouvement en translation avant, on retourne la valeur du compteur telle quelle afin de gérer de longues distances
 	case MOTION_MOVEMENT_TYPE_FORWARD :
 		return counter_value - MOTION_ENCODER_OFFSET;
@@ -120,7 +125,7 @@ Motion_Tick Motion_Get_Right_Ticks(Motion_MovementType motion)
 	case MOTION_MOVEMENT_TYPE_CLOCKWISE :
 		return -((int16_t) counter_value);
 	default:
-		return 0;
+		return (int16_t) counter_value;
 	}
 }
 
@@ -169,14 +174,12 @@ Motion_PWM Motion_Compute_PID(Motion_Tick setpoint, Motion_Tick position, Motion
 
 double Motion_PWM_Base_Right(Motion_Tick finalsetpoint, Motion_MovementType motion)
 {
-	double beta =  (double) Motion_Get_Right_Ticks(motion) / finalsetpoint;
-	return beta;
+	return finalsetpoint != 0 ? fmax(0, fmin((double) Motion_Get_Right_Ticks() / finalsetpoint, 1)) : 1;
 }
 
 double Motion_PWM_Base_Left(Motion_Tick finalsetpoint, Motion_MovementType motion) // retourner int64 non ? comment faire la conversion
 {
-	double alpha =  (double) Motion_Get_Left_Ticks(motion) / finalsetpoint;
-	return alpha;
+	return finalsetpoint != 0 ? fmax(0, fmin((double) Motion_Get_Left_Ticks() / finalsetpoint, 1)) : 1;
 }
 
 void Motion_Translation_Forward(Motion_Tick finalsetpoint)
@@ -185,9 +188,9 @@ void Motion_Translation_Forward(Motion_Tick finalsetpoint)
     double beta = Motion_PWM_Base_Right(finalsetpoint, MOTION_MOVEMENT_TYPE_FORWARD);
 
     // Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
-	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), &left_profile);
-	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_FORWARD), &right_profile);
-	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_FORWARD) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_FORWARD)) / 2;
+	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), &left_profile);
+	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), &right_profile);
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks() + Motion_Get_Right_Ticks()) / 2;
 	Motion_PWM translation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, &translation_profile);
 
 	// On met à jour les PWM aux moteurs
@@ -200,9 +203,9 @@ void Motion_Translation_Backward(Motion_Tick finalsetpoint) {
 	double beta = Motion_PWM_Base_Right(finalsetpoint, MOTION_MOVEMENT_TYPE_BACKWARD);
 
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
-	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), &left_profile);
-	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD), &right_profile);
-	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_BACKWARD)) / 2;
+	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), &left_profile);
+	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), &right_profile);
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks() + Motion_Get_Right_Ticks()) / 2;
 	Motion_PWM translation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, &translation_profile); // TODO
 
 	// On met à jour les PWM aux moteurs
@@ -215,9 +218,9 @@ void Motion_Rotation_Clockwise(Motion_Tick finalsetpoint) {
 	double beta = Motion_PWM_Base_Right(finalsetpoint, MOTION_MOVEMENT_TYPE_CLOCKWISE);
 
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
-	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), &left_profile);
-	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE), &right_profile);
-	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_CLOCKWISE)) / 2;
+	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), &left_profile);
+	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), &right_profile);
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks() + Motion_Get_Right_Ticks()) / 2;
 	Motion_PWM rotation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, &rotation_profile);
 
 	// On met à jour les PWM aux moteurs
@@ -230,9 +233,9 @@ void Motion_Rotation_Counter_Clockwise(Motion_Tick finalsetpoint) {
 	double beta = Motion_PWM_Base_Right(finalsetpoint, MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE);
 
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
-	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), &left_profile);
-	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE), &right_profile);
-	Motion_Tick avg_position = (Motion_Get_Left_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE) + Motion_Get_Right_Ticks(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE)) / 2;
+	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks(), Motion_Get_Left_Ticks(), &left_profile);
+	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks(), Motion_Get_Right_Ticks(), &right_profile);
+	Motion_Tick avg_position = (Motion_Get_Left_Ticks() + Motion_Get_Right_Ticks()) / 2;
 	Motion_PWM rotation_pwm_setpoint = Motion_Compute_PID(finalsetpoint, avg_position, &rotation_profile);
 
 	// On met à jour les PWM aux moteurs
@@ -244,7 +247,12 @@ void Motion_Rotation_Counter_Clockwise(Motion_Tick finalsetpoint) {
 // Order implementations
 //
 
-void Motion_Set_Forward_Translation_Setpoint(Shared_Tick x) {
+void Motion_Set_Forward_Translation_Setpoint(Shared_Tick setpoint) {
+	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD, setpoint);
+}
+
+void Motion_Release(void) {
+	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_NONE, 0);
 }
 
 //

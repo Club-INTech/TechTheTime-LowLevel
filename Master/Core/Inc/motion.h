@@ -29,8 +29,8 @@ typedef struct {
 
 void Motion_Init_Arg(Motion_MovementType, Motion_Tick);
 void Motion_Init(TIM_HandleTypeDef *, TIM_HandleTypeDef *, TIM_HandleTypeDef *);
-Motion_Tick Motion_Get_Left_Ticks(Motion_MovementType);
-Motion_Tick Motion_Get_Right_Ticks(Motion_MovementType);
+Motion_Tick Motion_Get_Left_Ticks(void);
+Motion_Tick Motion_Get_Right_Ticks(void);
 void Motion_Update_Left_PWM(Motion_PWM, Motion_Channel, Motion_Channel);
 void Motion_Update_Right_PWM(Motion_PWM, Motion_Channel, Motion_Channel);
 Motion_PWM Motion_Compute_PID(Motion_Tick, Motion_Tick, Motion_PID_Profile *);
