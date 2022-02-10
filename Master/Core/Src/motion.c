@@ -6,9 +6,9 @@
 
 #include <order/motion.h>
 
-#define MOTION_PWM_MAX 9000
+#define MOTION_PWM_MAX (UINT16_MAX * MOTION_POWER_MAX)
+#define MOTION_PWM_BASE (UINT16_MAX * MOTION_POWER_BASE)
 #define MOTION_ENCODER_OFFSET 5000
-#define MOTION_PWM_BASE (MOTION_PWM_MAX * MOTION_POWER_BASE)
 
 static TIM_HandleTypeDef *left_encoder_handler = NULL;
 static TIM_HandleTypeDef *right_encoder_handler = NULL;
@@ -156,8 +156,8 @@ void Motion_Update_Right_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Ch
 Motion_PWM Motion_Compute_PID(Motion_Tick setpoint, Motion_Tick position, Motion_PID_Profile *profile)
 {
 	Motion_PWM error_P = (Motion_PWM) setpoint - position;
-	profile->sum_error += error_P;
 	Motion_PWM error_D = profile->previous_position - position;
+	profile->sum_error = error_P * (setpoint - profile->previous_position) > 0 ? profile->sum_error + error_P : 0;
 	profile->previous_position = position;
 	Motion_PWM pwm = profile->kp * error_P + profile->kd * error_D + profile->ki * profile->sum_error;
 	if (pwm > MOTION_PWM_MAX) {
@@ -170,7 +170,6 @@ Motion_PWM Motion_Compute_PID(Motion_Tick setpoint, Motion_Tick position, Motion
 	    return pwm;
 	}
 }
-
 
 double Motion_PWM_Base_Right(Motion_Tick finalsetpoint, Motion_MovementType motion)
 {
