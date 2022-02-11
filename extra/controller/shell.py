@@ -87,14 +87,20 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
             action="store_true",
             help="Enables data display after tracking",
         )
+        parser.add_argument(
+            "--exec",
+            "-e",
+            nargs="*",
+            help="Execute that command after arming the tracker",
+        )
         args = parser.parse_args(line)
 
         print("Arming the tracker...")
         self._tracker.shows_record = args.show_record
-        with TrackerModeGuard(self), self._tracker:
+        with self._tracker, TrackerModeGuard(self):
             print("Tracker ready")
             print("Tracker will be disarmed when tracking is over or by typing 'quit'")
-            run_shell(self)
+            self.onecmd(" ".join(args.exec)) if args.exec else run_shell(self)
 
         print("Tracker is disarmed")
 

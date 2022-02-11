@@ -135,6 +135,8 @@ class _TrackerProcess:
                 or obj.right_encoder_ticks > self._trigger_threshold
             ):
                 self._is_running = True
+            elif obj == Command.STOP:
+                return
 
         self._begin_time = tm.time()
         self._remote_begin_time_s = None
