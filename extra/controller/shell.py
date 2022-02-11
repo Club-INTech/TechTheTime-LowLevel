@@ -211,6 +211,7 @@ class TrackerModeGuard(ShellModeGuard):
         super().__init__(mode=ShellMode.TRACKER, *args, **kwargs)
 
     def _set(self):
+        self._shell._remote.pipe.send(remote.Command.CLEAR_INPUT_BUFFER)
         self._shell._remote.pipe.send(remote.Command.START_MEASURE_FORWARDING)
         self._shell._remote.pipe.send(remote.Order(rpc.set_mode, rpc.HubMode.TRACKER))
 

@@ -47,6 +47,7 @@ class Command(Enum):
     STOP_DUMP = 1
     START_MEASURE_FORWARDING = 2
     STOP_MEASURE_FORWARDING = 3
+    CLEAR_INPUT_BUFFER = 4
 
 
 class Order:
@@ -129,6 +130,7 @@ class _StreamProcess:
                         Command.STOP_DUMP: self._disable_dumping,
                         Command.START_MEASURE_FORWARDING: self._enable_measure_forwarding,
                         Command.STOP_MEASURE_FORWARDING: self._disable_measure_forwarding,
+                        Command.CLEAR_INPUT_BUFFER: self._serial.reset_input_buffer,
                     },
                     bytes: self._serial.write,
                     Order: self._start_frame,
