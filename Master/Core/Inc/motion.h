@@ -4,8 +4,15 @@
 
 #include "stm32g4xx_hal.h"
 
-typedef int32_t Motion_Tick;
+#include <order/motion.h>
+
+typedef Shared_Tick Motion_Tick;  //rajouter un truc pour faire l'alias ?
 typedef int32_t Motion_PWM;
+typedef Shared_PID_K Motion_PID_K;
+
+/* unsigned int channels[] = { faire tableau pour relier Motion_Channel à MO
+
+}; */
 
 typedef enum {
 	MOTION_CHANNEL_FORWARD_LEFT = TIM_CHANNEL_3,
@@ -27,6 +34,8 @@ typedef struct {
 	Motion_Tick previous_position, sum_error;
 } Motion_PID_Profile;
 
+
+
 void Motion_Init_Arg(Motion_MovementType, Motion_Tick);
 void Motion_Init(TIM_HandleTypeDef *, TIM_HandleTypeDef *, TIM_HandleTypeDef *);
 Motion_Tick Motion_Get_Left_Ticks(void);
@@ -40,5 +49,6 @@ void Motion_Translation_Forward(Motion_Tick);
 void Motion_Translation_Backward(Motion_Tick);
 void Motion_Rotation_Clockwise(Motion_Tick);
 void Motion_Rotation_Counter_Clockwise(Motion_Tick);
+void Motion_Joystick(Motion_PWM, Motion_Tick);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *);
 

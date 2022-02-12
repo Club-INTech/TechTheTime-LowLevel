@@ -15,26 +15,26 @@ static TIM_HandleTypeDef *right_encoder_handler = NULL;
 static TIM_HandleTypeDef *pwm_handler = NULL;
 
 static Motion_PID_Profile
-	left_profile = {
-		.kp = MOTION_LEFT_KP,
-		.kd = MOTION_LEFT_KD,
-		.ki = MOTION_LEFT_KI
-	},
-	right_profile = {
-		.kp = MOTION_RIGHT_KP,
-		.kd = MOTION_RIGHT_KD,
-		.ki = MOTION_RIGHT_KI
-	},
-	translation_profile = {
-		.kp = MOTION_TRANSLATION_KP,
-		.kd = MOTION_TRANSLATION_KD,
-		.ki = MOTION_TRANSLATION_KI
-	},
-	rotation_profile = {
-		.kp = MOTION_ROTATION_KP,
-		.kd = MOTION_ROTATION_KD,
-		.ki = MOTION_ROTATION_KI
-	};
+left_profile = {
+	.kp = MOTION_LEFT_KP,
+	.kd = MOTION_LEFT_KD,
+	.ki = MOTION_LEFT_KI
+},
+right_profile = {
+	.kp = MOTION_RIGHT_KP,
+	.kd = MOTION_RIGHT_KD,
+	.ki = MOTION_RIGHT_KI
+},
+translation_profile = {
+	.kp = MOTION_TRANSLATION_KP,
+	.kd = MOTION_TRANSLATION_KD,
+	.ki = MOTION_TRANSLATION_KI
+},
+rotation_profile = {
+	.kp = MOTION_ROTATION_KP,
+	.kd = MOTION_ROTATION_KD,
+	.ki = MOTION_ROTATION_KI
+};
 
 static Motion_PWM pwm_base = MOTION_PWM_BASE;
 static Motion_MovementType motion_arg = MOTION_MOVEMENT_TYPE_NONE;
@@ -96,7 +96,7 @@ Motion_Tick Motion_Get_Left_Ticks(void)
 		return counter_value - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en translation arrière, on joue sur le fonctionnement du complément à 2 pour considérer la plage de valeur entre 0 et -(2^16 - 1)
 	case MOTION_MOVEMENT_TYPE_BACKWARD :
-		return (~counter_value + 1) - MOTION_ENCODER_OFFSET;
+		return (uint16_t)(~counter_value + 1u) - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en rotation, on interpréte la valeur du compteur comme un entier signé (c'est permis grâce au fonctionnement du complément à 2)
 	case MOTION_MOVEMENT_TYPE_CLOCKWISE :
 		return (int16_t) counter_value;
@@ -117,7 +117,7 @@ Motion_Tick Motion_Get_Right_Ticks(void)
 		return counter_value - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en translation arrière, on joue sur le fonctionnement du complément à 2 pour considérer la plage de valeur entre 0 et -(2^16 - 1) et on retourne la valeur opposée
 	case MOTION_MOVEMENT_TYPE_BACKWARD :
-		return (~counter_value + 1) - MOTION_ENCODER_OFFSET;
+		return (uint16_t)(~counter_value + 1u) - MOTION_ENCODER_OFFSET;
 	// Dans le cas d'un mouvement en rotation, on interpréte la valeur du compteur comme un entier signé (c'est permis grâce au fonctionnement du complément à 2)
 	case MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE :
 		return (int16_t) counter_value;
@@ -246,12 +246,59 @@ void Motion_Rotation_Counter_Clockwise(Motion_Tick finalsetpoint) {
 // Order implementations
 //
 
-void Motion_Set_Forward_Translation_Setpoint(Shared_Tick setpoint) {
-	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD, setpoint);
-}
-
 void Motion_Release(void) {
 	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_NONE, 0);
+}
+
+void Motion_Set_Forward_Translation_Setpoint(Shared_Tick setpoint) {
+	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FORWARD,setpoint);
+}
+
+void Motion_Set_Backward_Translation_Setpoint(Shared_Tick setpoint) {
+	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_BACKWARD, setpoint);
+}
+
+void Motion_Set_Clockwise_Rotation_Setpoint(Shared_Tick setpoint) {
+	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_CLOCKWISE, setpoint);
+}
+
+void Motion_Set_Counterclockwise_Rotation_Setpoint(Shared_Tick setpoint) {
+	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE, setpoint);
+}
+
+void Motion_set_Translation_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	translation_profile.kp = kp;
+	translation_profile.kd = kd;
+	translation_profile.ki = ki;
+}
+
+void Motion_set_Rotation_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	rotation_profile.kp = kp;
+	rotation_profile.kd = kd;
+	rotation_profile.ki = ki;
+}
+
+void Motion_set_Left_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	left_profile.kp = kp;
+	left_profile.kd = kd;
+	left_profile.ki = ki;
+}
+
+void Motion_set_Right_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	right_profile.kp = kp;
+	right_profile.kd = kd;
+	right_profile.ki = ki;
+}
+
+void Motion_Joystick(Motion_PWM pwm_send, Motion_Tick offset) {
+
+	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
+	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks() + offset, Motion_Get_Left_Ticks(), &left_profile);
+	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks() - offset, Motion_Get_Right_Ticks(), &right_profile);
+
+	// On met à jour les PWM aux moteurs
+	Motion_Update_Left_PWM(pwm_send + left_pwm_setpoint, MOTION_CHANNEL_FORWARD_LEFT, MOTION_CHANNEL_BACKWARD_LEFT);
+	Motion_Update_Right_PWM(pwm_send+ right_pwm_setpoint, MOTION_CHANNEL_FORWARD_RIGHT, MOTION_CHANNEL_BACKWARD_RIGHT);
 }
 
 //
@@ -259,23 +306,23 @@ void Motion_Release(void) {
 //
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-  if (htim->Instance == pwm_handler->Instance)
-  {
+	if (htim->Instance == pwm_handler->Instance)
+	{
 	  switch(motion_arg) {
-		  case MOTION_MOVEMENT_TYPE_FORWARD:
-			  Motion_Translation_Forward(finalsetpoint_arg);
-			  break;
-		  case MOTION_MOVEMENT_TYPE_BACKWARD:
-			  Motion_Translation_Backward(finalsetpoint_arg);
-			  break;
-		  case MOTION_MOVEMENT_TYPE_CLOCKWISE:
-			  Motion_Rotation_Clockwise(finalsetpoint_arg);
-			  break;
-		  case MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE:
-			  Motion_Rotation_Counter_Clockwise(finalsetpoint_arg);
-			  break;
+	  case MOTION_MOVEMENT_TYPE_FORWARD:
+		  Motion_Translation_Forward(finalsetpoint_arg);
+		  break;
+	  case MOTION_MOVEMENT_TYPE_BACKWARD:
+		  Motion_Translation_Backward(finalsetpoint_arg);
+		  break;
+	  case MOTION_MOVEMENT_TYPE_CLOCKWISE:
+		  Motion_Rotation_Clockwise(finalsetpoint_arg);
+		  break;
+	  case MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE:
+		  Motion_Rotation_Counter_Clockwise(finalsetpoint_arg);
+		  break;
 	  default:
 		  break;
 	  }
-  }
+	}
 }
