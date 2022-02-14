@@ -317,7 +317,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         with open(self._pid_path) as f:
             pid = literal_eval(f.read())
 
-        if not any(vars(args).values()):
+        if not any(map(lambda x: x is not None, vars(args).values())):
             pprint(pid)
             return
 
