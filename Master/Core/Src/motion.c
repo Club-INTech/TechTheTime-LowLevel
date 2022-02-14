@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include <order/motion.h>
+#include <order/type.h>
 
 #define MOTION_PWM_MAX (UINT16_MAX * MOTION_POWER_MAX)
 #define MOTION_PWM_BASE (UINT16_MAX * MOTION_POWER_BASE)
@@ -266,28 +267,28 @@ void Motion_Set_Counterclockwise_Rotation_Setpoint(Shared_Tick setpoint) {
 	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE, setpoint);
 }
 
-void Motion_set_Translation_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
-	translation_profile.kp = kp;
-	translation_profile.kd = kd;
-	translation_profile.ki = ki;
+void Motion_Set_Translation_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	translation_profile.kp = FROM_SHARED_PID_K_FIXED_POINT(kp);
+	translation_profile.kd = FROM_SHARED_PID_K_FIXED_POINT(kd);
+	translation_profile.ki = FROM_SHARED_PID_K_FIXED_POINT(ki);
 }
 
-void Motion_set_Rotation_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
-	rotation_profile.kp = kp;
-	rotation_profile.kd = kd;
-	rotation_profile.ki = ki;
+void Motion_Set_Rotation_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	rotation_profile.kp = FROM_SHARED_PID_K_FIXED_POINT(kp);
+	rotation_profile.kd = FROM_SHARED_PID_K_FIXED_POINT(kd);
+	rotation_profile.ki = FROM_SHARED_PID_K_FIXED_POINT(ki);
 }
 
-void Motion_set_Left_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
-	left_profile.kp = kp;
-	left_profile.kd = kd;
-	left_profile.ki = ki;
+void Motion_Set_Left_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	left_profile.kp = FROM_SHARED_PID_K_FIXED_POINT(kp);
+	left_profile.kd = FROM_SHARED_PID_K_FIXED_POINT(kd);
+	left_profile.ki = FROM_SHARED_PID_K_FIXED_POINT(ki);
 }
 
-void Motion_set_Right_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
-	right_profile.kp = kp;
-	right_profile.kd = kd;
-	right_profile.ki = ki;
+void Motion_Set_Right_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
+	right_profile.kp = FROM_SHARED_PID_K_FIXED_POINT(kp);
+	right_profile.kd = FROM_SHARED_PID_K_FIXED_POINT(kd);
+	right_profile.ki = FROM_SHARED_PID_K_FIXED_POINT(ki);
 }
 
 void Motion_Joystick(Motion_PWM pwm_send, Motion_Tick offset) {
