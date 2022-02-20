@@ -49,6 +49,5 @@ void Motion_Translation_Forward(Motion_Tick);
 void Motion_Translation_Backward(Motion_Tick);
 void Motion_Rotation_Clockwise(Motion_Tick);
 void Motion_Rotation_Counter_Clockwise(Motion_Tick);
-void Motion_Joystick(Motion_PWM, Motion_Tick);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *);
 

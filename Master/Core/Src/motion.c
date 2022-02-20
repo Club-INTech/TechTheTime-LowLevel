@@ -291,7 +291,7 @@ void Motion_Set_Right_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
 	right_profile.ki = FROM_SHARED_PID_K_FIXED_POINT(ki);
 }
 
-void Motion_Joystick(Motion_PWM pwm_send, Motion_Tick offset) {
+void Motion_Joystick(Shared_PWM pwm_send, Shared_Tick offset) {
 
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
 	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks() + offset, Motion_Get_Left_Ticks(), &left_profile);

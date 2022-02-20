@@ -7,10 +7,12 @@ import cmd
 import itertools as it
 import sys
 import textwrap
+import time as tm
 from ast import literal_eval
 from enum import Enum
 from os import path
 from pprint import pprint
+from getkey import getkey, keys
 
 import controller_rpc as rpc
 import matplotlib.pyplot as plt
@@ -212,7 +214,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         while self._remote.pipe.poll():
             self._remote.pipe.recv()
-        print("Commanding remote to start a translation...")
+        print("Commanding remote to start a rotation...")
         self._remote.pipe.send(remote.Order(rpc.rotate, angle))
 
         self._tracker.reset_timeout_counter()
@@ -221,6 +223,42 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         self._tracker.pipe.send(trk.Setpoint(angle))
         return True if self._mode is ShellMode.TRACKER else False
+
+    def do_joystick(self,line) : 
+        """
+        Command the remote device according to the joystick
+        """
+        parser = Parser()
+        parser.add_argument("pwm_step", type=int, help="Change pwm_send parameter")
+        parser.add_argument("offset_step", type=int, help="Change offset parameter")
+        args=parser.parse_args(line)
+
+        print("Commanding remote to start a free movement...")
+
+        pwm = 0
+        offset = 0
+
+        with JoystickModeGuard(self):
+            while True : 
+                key = getkey()
+                if key == 'z': 
+                    pwm += args.pwm_step
+                
+                if key == 's':
+                    pwm -= args.pwm_step
+                
+                if key == 'q': 
+                    offset += args.offset_step
+                
+                if key == 'd': 
+                    offset -= args.offset_step
+                
+                if key == ' ': 
+                    return 
+
+                self._remote.pipe.send(remote.Order(rpc.joystick,pwm, offset))
+                tm.sleep(10e-3)
+
 
     def do_pid(self, line):
         """
@@ -403,6 +441,7 @@ class ShellMode(Enum):
     BASE = 0
     TRACKER = 1
     DUMP = 2
+    JOYSTICK = 3
 
 
 class ShellModeGuard:
@@ -436,6 +475,7 @@ class ShellModeGuard:
         self._shell.prompt = Match(self._mode) & {
             ShellMode.TRACKER: "[shell > tracker] -- ",
             ShellMode.DUMP: "[shell > dump] -- ",
+            ShellMode.JOYSTICK: "[shell > joystick] -- ",
         }
         self._set()
 
@@ -468,6 +508,21 @@ class TrackerModeGuard(ShellModeGuard):
         self._shell._remote.pipe.send(remote.Order(rpc.release_motor))
         self._shell._remote.pipe.send(remote.Order(rpc.set_mode, rpc.HubMode.BASE))
 
+
+class JoystickModeGuard(ShellModeGuard): 
+    """
+    Configures the remote device interface for free movement with the joystick
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(mode=ShellMode.JOYSTICK, *args, **kwargs)
+
+    def _set(self):
+        pass
+    
+
+    def _restore(self):
+        pass
 
 class DumpModeGuard(ShellModeGuard):
     """
