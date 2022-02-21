@@ -229,34 +229,32 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Command the remote device according to the joystick
         """
         parser = Parser()
-        parser.add_argument("pwm_step", type=int, help="Change pwm_send parameter")
+        parser.add_argument("distance_step", type=int, help="Change pwm_send parameter")
         parser.add_argument("offset_step", type=int, help="Change offset parameter")
         args=parser.parse_args(line)
 
         print("Commanding remote to start a free movement...")
 
-        pwm = 0
+        distance = 0
         offset = 0
 
         with JoystickModeGuard(self):
             while True : 
                 key = getkey()
                 if key == 'z': 
-                    pwm += args.pwm_step
-                
-                if key == 's':
-                    pwm -= args.pwm_step
-                
-                if key == 'q': 
+                    distance += args.distance_step
+                elif key == 's':
+                    distance -= args.distance_step
+                elif key == 'q': 
                     offset += args.offset_step
-                
-                if key == 'd': 
+                elif key == 'd':
                     offset -= args.offset_step
+                elif key == ' ': 
+                    return
+                else:
+                    pwm = 0
                 
-                if key == ' ': 
-                    return 
-
-                self._remote.pipe.send(remote.Order(rpc.joystick,pwm, offset))
+                self._remote.pipe.send(remote.Order(rpc.set_joystick,distance, offset))
                 tm.sleep(10e-3)
 
 
@@ -522,7 +520,7 @@ class JoystickModeGuard(ShellModeGuard):
     
 
     def _restore(self):
-        pass
+        self._shell._remote.pipe.send(remote.Order(rpc.release_motor))
 
 class DumpModeGuard(ShellModeGuard):
     """

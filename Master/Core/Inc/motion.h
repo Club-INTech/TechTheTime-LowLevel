@@ -26,7 +26,8 @@ typedef enum {
 	MOTION_MOVEMENT_TYPE_FORWARD,
 	MOTION_MOVEMENT_TYPE_BACKWARD,
 	MOTION_MOVEMENT_TYPE_CLOCKWISE,
-	MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE
+	MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE,
+	MOTION_MOVEMENT_TYPE_FREE
 } Motion_MovementType;
 
 typedef struct {
@@ -49,5 +50,6 @@ void Motion_Translation_Forward(Motion_Tick);
 void Motion_Translation_Backward(Motion_Tick);
 void Motion_Rotation_Clockwise(Motion_Tick);
 void Motion_Rotation_Counter_Clockwise(Motion_Tick);
+void Motion_Joystick(Motion_Tick, Motion_Tick);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *);
 

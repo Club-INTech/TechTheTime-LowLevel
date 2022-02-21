@@ -121,16 +121,16 @@ void HL_Interrupt_Get_Order(UART_HandleTypeDef *) {
 
 
 void HL_Interrupt_Call_Order(UART_HandleTypeDef *) {
-	if (byte == rpc::header[0]){
-		count ++;
-	} else {
-		count = 0;
-	}
-	if (count == sizeof rpc::header - 1){
+	if (count == sizeof rpc::header - 1) {
 		count = 0;
 	} else {
 		rx_buf[indice] = byte;
 		indice ++;
+	}
+	if (byte == rpc::header[0]){
+		count ++;
+	} else {
+		count = 0;
 	}
 
 	if(indice == hanging_order->input_size()){
