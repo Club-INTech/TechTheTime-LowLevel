@@ -223,13 +223,31 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         self._tracker.pipe.send(trk.Setpoint(angle))
         return True if self._mode is ShellMode.TRACKER else False
+    
+    def do_free(self, line) : 
+        """
+        Command the remote device for an infinite translation until space is pressed
+        """
+
+        parser = Parser()
+        parser.add_argument("pwm", type=int, help="Change pwm parameter")
+        args=parser.parse_args(line)
+
+        pwm=args.pwm
+
+        self._remote.pipe.send(remote.Order(rpc.set_free_movement, pwm))
+
+        while True : 
+            if getkey() == ' ' :
+                self._remote.pipe.send(remote.Order(rpc.release_motor))
+                return True if self._mode is ShellMode.TRACKER else False
 
     def do_joystick(self, line):
         """
         Command the remote device according to the joystick
         """
         parser = Parser()
-        parser.add_argument("distance_step", type=int, help="Change pwm_send parameter")
+        parser.add_argument("distance_step", type=int, help="Change distance parameter")
         parser.add_argument("offset_step", type=int, help="Change offset parameter")
         args = parser.parse_args(line)
 
