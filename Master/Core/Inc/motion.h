@@ -4,9 +4,9 @@
 
 #include "stm32g4xx_hal.h"
 
-#include <order/motion.h>
+#define MOTION_ERROR_BUFFER_SIZE 5
 
-typedef Shared_Tick Motion_Tick;  //rajouter un truc pour faire l'alias ?
+typedef int32_t Motion_Tick;
 typedef int32_t Motion_PWM;
 typedef Shared_PID_K Motion_PID_K;
 
@@ -32,7 +32,7 @@ typedef enum {
 
 typedef struct {
 	double kp, kd, ki;
-	Motion_Tick previous_position, sum_error;
+	Motion_Tick error_buf[MOTION_ERROR_BUFFER_SIZE], *last_error_ptr, error_sum;
 } Motion_PID_Profile;
 
 
@@ -52,4 +52,3 @@ void Motion_Rotation_Clockwise(Motion_Tick);
 void Motion_Rotation_Counter_Clockwise(Motion_Tick);
 void Motion_Joystick(Motion_Tick, Motion_Tick);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *);
-

@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <order/motion.h>
 #include <order/type.h>
@@ -43,19 +44,47 @@ static Motion_Tick finalsetpoint_arg = 0;
 static Motion_Tick distance_arg = 0;
 static Motion_Tick offset_arg = 0;
 
+static void Motion_Start_Motor(void) {
+	HAL_TIM_Base_Start_IT(pwm_handler);
+	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_LEFT);
+	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_RIGHT);
+	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_LEFT);
+	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_RIGHT);
+}
+
+static void Motion_Stop_Motor(void) {
+	HAL_TIM_Base_Stop_IT(pwm_handler);
+	HAL_TIM_PWM_Stop(pwm_handler, MOTION_CHANNEL_FORWARD_LEFT);
+	HAL_TIM_PWM_Stop(pwm_handler, MOTION_CHANNEL_FORWARD_RIGHT);
+	HAL_TIM_PWM_Stop(pwm_handler, MOTION_CHANNEL_BACKWARD_LEFT);
+	HAL_TIM_PWM_Stop(pwm_handler, MOTION_CHANNEL_BACKWARD_RIGHT);
+}
+
+static void Motion_Rewind_Profile(Motion_PID_Profile *profile_ptr) {
+  memset(profile_ptr->error_buf, 0, sizeof profile_ptr->error_buf);
+  profile_ptr->last_error_ptr = profile_ptr->error_buf;
+  profile_ptr->error_sum = 0;
+}
+
+static void Motion_Update_Profile(Motion_PID_Profile *profile_ptr, Motion_Tick error) {
+	profile_ptr->last_error_ptr++;
+	if (profile_ptr->last_error_ptr == profile_ptr->error_buf + MOTION_ERROR_BUFFER_SIZE)
+		profile_ptr->last_error_ptr = profile_ptr->error_buf;
+
+	profile_ptr->error_sum += error - *profile_ptr->last_error_ptr;
+	*profile_ptr->last_error_ptr = error;
+}
+
 void Motion_Init_Arg(Motion_MovementType motion, Motion_Tick finalsetpoint) {
-	motion_arg = MOTION_MOVEMENT_TYPE_NONE;
+	Motion_Stop_Motor();
+
+	motion_arg = motion;
 	finalsetpoint_arg = finalsetpoint;
 
-	left_profile.previous_position = 0;
-	right_profile.previous_position = 0;
-	translation_profile.previous_position = 0;
-	rotation_profile.previous_position = 0;
-
-	left_profile.sum_error = 0;
-	right_profile.sum_error = 0;
-	translation_profile.sum_error = 0;
-	rotation_profile.sum_error = 0;
+	Motion_Rewind_Profile(&left_profile);
+	Motion_Rewind_Profile(&right_profile);
+	Motion_Rewind_Profile(&translation_profile);
+	Motion_Rewind_Profile(&rotation_profile);
 
 	switch(motion) {
 	case MOTION_MOVEMENT_TYPE_FORWARD:
@@ -72,7 +101,7 @@ void Motion_Init_Arg(Motion_MovementType motion, Motion_Tick finalsetpoint) {
 		break;
 	}
 
-	motion_arg = motion;
+	if (motion != MOTION_MOVEMENT_TYPE_NONE) Motion_Start_Motor();
 }
 
 void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_right_encoder_handler, TIM_HandleTypeDef *_pwm_handler)
@@ -83,11 +112,7 @@ void Motion_Init(TIM_HandleTypeDef *_left_encoder_handler, TIM_HandleTypeDef *_r
 
 	HAL_TIM_Encoder_Start(left_encoder_handler, TIM_CHANNEL_ALL);
 	HAL_TIM_Encoder_Start(right_encoder_handler, TIM_CHANNEL_ALL);
-	HAL_TIM_Base_Start_IT(pwm_handler);
-	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_LEFT);
-	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_RIGHT);
-	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_LEFT);
-	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_BACKWARD_RIGHT);
+	Motion_Start_Motor();
 }
 
 
@@ -153,7 +178,7 @@ void Motion_Update_Left_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Cha
 
 void Motion_Update_Right_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Channel Channel_b)
 {
- 	if (pwm > 0) {     // tim_channel_3, tim_channel_4
+	if (pwm > 0) {    // tim_channel_1, tim_cHAL_TIM_Base_Start_IT(hannel_2
 		__HAL_TIM_SET_COMPARE(pwm_handler, Channel_a, pwm);
 		__HAL_TIM_SET_COMPARE(pwm_handler, Channel_b, 0);
 	}
@@ -165,11 +190,10 @@ void Motion_Update_Right_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Ch
 
 Motion_PWM Motion_Compute_PID(Motion_Tick setpoint, Motion_Tick position, Motion_PID_Profile *profile)
 {
-	Motion_PWM error_P = (Motion_PWM) setpoint - position;
-	Motion_PWM error_D = profile->previous_position - position;
-	profile->sum_error = error_P * (setpoint - profile->previous_position) > 0 ? profile->sum_error + error_P : 0;
-	profile->previous_position = position;
-	Motion_PWM pwm = profile->kp * error_P + profile->kd * error_D + profile->ki * profile->sum_error;
+	Motion_Tick error = setpoint - position, error_delta = error - *profile->last_error_ptr;
+	Motion_Update_Profile(profile, error);
+
+	Motion_PWM pwm = profile->kp * error + profile->kd * error_delta + profile->ki * profile->error_sum;
 	if (pwm > MOTION_PWM_MAX) {
 		return MOTION_PWM_MAX;
 	}
