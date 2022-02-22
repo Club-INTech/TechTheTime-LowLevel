@@ -4,6 +4,8 @@
 
 #include "stm32g4xx_hal.h"
 
+#define MOTION_ERROR_BUFFER_SIZE 5
+
 typedef int32_t Motion_Tick;
 typedef int32_t Motion_PWM;
 
@@ -24,7 +26,7 @@ typedef enum {
 
 typedef struct {
 	double kp, kd, ki;
-	Motion_Tick previous_position, sum_error;
+	Motion_Tick error_buf[MOTION_ERROR_BUFFER_SIZE], *last_error_ptr, error_sum;
 } Motion_PID_Profile;
 
 void Motion_Init_Arg(Motion_MovementType, Motion_Tick);
@@ -41,4 +43,3 @@ void Motion_Translation_Backward(Motion_Tick);
 void Motion_Rotation_Clockwise(Motion_Tick);
 void Motion_Rotation_Counter_Clockwise(Motion_Tick);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *);
-
