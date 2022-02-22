@@ -62,7 +62,44 @@ PYBIND11_MODULE(controller_rpc, m) {
   m.def("execute", execute, R"(
     Execute a received order
   )");
-  m.def("translate", make_command(rpc::master::keyring.get<Motion_Set_Forward_Translation_Setpoint>()));
+  m.def("translate", [](Shared_Tick setpoint, const std::function<void(upd::byte_t)> &serial_output) {
+    if (setpoint > 0) {
+      rpc::master::keyring.get<Motion_Set_Forward_Translation_Setpoint>()(setpoint) >> serial_output;
+    } else {
+      rpc::master::keyring.get<Motion_Set_Backward_Translation_Setpoint>()(-setpoint) >> serial_output;
+    }
+  });
+  m.def("rotate", [](Shared_Tick setpoint, const std::function<void(upd::byte_t)> &serial_output) {
+    if (setpoint > 0) {
+      rpc::master::keyring.get<Motion_Set_Clockwise_Rotation_Setpoint>()(setpoint) >> serial_output;
+    } else {
+      rpc::master::keyring.get<Motion_Set_Counterclockwise_Rotation_Setpoint>()(-setpoint) >> serial_output;
+    }
+  });
+  m.def("set_translation_pid",
+        [](double kp, double ki, double kd, const std::function<void(upd::byte_t)> &serial_output) {
+          rpc::master::keyring.get<Motion_Set_Translation_PID>()(
+              TO_SHARED_PID_K_FIXED_POINT(kp), TO_SHARED_PID_K_FIXED_POINT(ki), TO_SHARED_PID_K_FIXED_POINT(kd)) >>
+              serial_output;
+        });
+  m.def("set_rotation_pid", [](double kp, double ki, double kd, const std::function<void(upd::byte_t)> &serial_output) {
+    rpc::master::keyring.get<Motion_Set_Rotation_PID>()(
+        TO_SHARED_PID_K_FIXED_POINT(kp), TO_SHARED_PID_K_FIXED_POINT(ki), TO_SHARED_PID_K_FIXED_POINT(kd)) >>
+        serial_output;
+  });
+  m.def("set_left_pid", [](double kp, double ki, double kd, const std::function<void(upd::byte_t)> &serial_output) {
+    rpc::master::keyring.get<Motion_Set_Left_PID>()(TO_SHARED_PID_K_FIXED_POINT(kp), TO_SHARED_PID_K_FIXED_POINT(ki),
+                                                    TO_SHARED_PID_K_FIXED_POINT(kd)) >>
+        serial_output;
+  });
+  m.def("set_right_pid", [](double kp, double ki, double kd, const std::function<void(upd::byte_t)> &serial_output) {
+    rpc::master::keyring.get<Motion_Set_Right_PID>()(TO_SHARED_PID_K_FIXED_POINT(kp), TO_SHARED_PID_K_FIXED_POINT(ki),
+                                                     TO_SHARED_PID_K_FIXED_POINT(kd)) >>
+        serial_output;
+  });
+  m.def("set_joystick", [](Shared_Tick distance, Shared_Tick offset, const std::function<void(upd::byte_t)> &serial_output) {
+    rpc::master::keyring.get<Motion_Set_Joystick>()(distance, offset) >> serial_output; 
+  });
   m.def("set_mode", make_command(rpc::master::keyring.get<Hub_Set_Mode>()));
   m.def("release_motor", make_command(rpc::master::keyring.get<Motion_Release>()));
   m.attr("HEADER") = std::vector<uint8_t>{0xff, 0xff, 0xff};

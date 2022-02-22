@@ -11,7 +11,7 @@ import controller_rpc as rpc
 import serial as sr
 from utility.match import Match
 
-REFRESH_DELAY_S = 1e-3
+REFRESH_DELAY_S = 5e-3
 SERIAL_TIMEOUT_S = 1e-3
 KEEPALIVE_DELAY_S = 500e-3
 

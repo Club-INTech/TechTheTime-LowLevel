@@ -8,6 +8,11 @@
 
 typedef int32_t Motion_Tick;
 typedef int32_t Motion_PWM;
+typedef Shared_PID_K Motion_PID_K;
+
+/* unsigned int channels[] = { faire tableau pour relier Motion_Channel à MO
+
+}; */
 
 typedef enum {
 	MOTION_CHANNEL_FORWARD_LEFT = TIM_CHANNEL_3,
@@ -21,13 +26,16 @@ typedef enum {
 	MOTION_MOVEMENT_TYPE_FORWARD,
 	MOTION_MOVEMENT_TYPE_BACKWARD,
 	MOTION_MOVEMENT_TYPE_CLOCKWISE,
-	MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE
+	MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE,
+	MOTION_MOVEMENT_TYPE_FREE
 } Motion_MovementType;
 
 typedef struct {
 	double kp, kd, ki;
 	Motion_Tick error_buf[MOTION_ERROR_BUFFER_SIZE], *last_error_ptr, error_sum;
 } Motion_PID_Profile;
+
+
 
 void Motion_Init_Arg(Motion_MovementType, Motion_Tick);
 void Motion_Init(TIM_HandleTypeDef *, TIM_HandleTypeDef *, TIM_HandleTypeDef *);
@@ -42,4 +50,5 @@ void Motion_Translation_Forward(Motion_Tick);
 void Motion_Translation_Backward(Motion_Tick);
 void Motion_Rotation_Clockwise(Motion_Tick);
 void Motion_Rotation_Counter_Clockwise(Motion_Tick);
+void Motion_Joystick(Motion_Tick, Motion_Tick);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *);

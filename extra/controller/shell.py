@@ -7,7 +7,12 @@ import cmd
 import itertools as it
 import sys
 import textwrap
+import time as tm
+from ast import literal_eval
 from enum import Enum
+from os import path
+from pprint import pprint
+from getkey import getkey, keys
 
 import controller_rpc as rpc
 import matplotlib.pyplot as plt
@@ -45,6 +50,41 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self._mode = ShellMode.BASE
         self._tracker = Tracker()
         self._remote = remote.Stream(port=port, tracker_pipe=self._tracker.pipe)
+        self._pid_path = path.dirname(__file__) + "/data/pid"
+
+        if path.exists(self._pid_path):
+            print("Loading the stored PID parameters into remote...")
+            with open(self._pid_path) as f:
+                pid = literal_eval(f.read())
+                self._remote.pipe.send(
+                    remote.Order(rpc.set_left_pid, *map(float, pid["left"].values()))
+                )
+                self._remote.pipe.send(
+                    remote.Order(rpc.set_right_pid, *map(float, pid["right"].values()))
+                )
+                self._remote.pipe.send(
+                    remote.Order(
+                        rpc.set_translation_pid,
+                        *map(float, pid["translation"].values())
+                    )
+                )
+                self._remote.pipe.send(
+                    remote.Order(
+                        rpc.set_rotation_pid, *map(float, pid["rotation"].values())
+                    )
+                )
+        else:
+            with open(self._pid_path, "w") as f:
+                f.write(
+                    repr(
+                        {
+                            "left": {"kp": 0, "ki": 0, "kd": 0},
+                            "right": {"kp": 0, "ki": 0, "kd": 0},
+                            "translation": {"kp": 0, "ki": 0, "kd": 0},
+                            "rotation": {"kp": 0, "ki": 0, "kd": 0},
+                        }
+                    )
+                )
 
     def do_dump(self, line):
         """
@@ -144,6 +184,244 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self._tracker.pipe.send(trk.Setpoint(distance))
         return True if self._mode is ShellMode.TRACKER else False
 
+    def do_rotate(self, line):
+        """
+        Command the remote device to perform a rotation
+        """
+        units_scales = {"tick": 1}
+
+        parser = Parser()
+        parser.add_argument("angle", type=int, help="Angle of the rotation")
+        parser.add_argument(
+            "--unit",
+            "-u",
+            nargs="?",
+            choices=units_scales.keys(),
+            default="tick",
+            help="Unit in which 'angle' is given",
+        )
+        parser.add_argument(
+            "--timeout",
+            "-t",
+            type=float,
+            nargs="?",
+            default=500e-3,
+            help="Maximum delay between the reception of two measures from the remote device",
+        )
+        args = parser.parse_args(line)
+
+        angle = (Match(args.unit) & units_scales) * args.angle
+
+        while self._remote.pipe.poll():
+            self._remote.pipe.recv()
+        print("Commanding remote to start a rotation...")
+        self._remote.pipe.send(remote.Order(rpc.rotate, angle))
+
+        self._tracker.reset_timeout_counter()
+        while self._tracker.timeout_counter_s < args.timeout:
+            pass
+
+        self._tracker.pipe.send(trk.Setpoint(angle))
+        return True if self._mode is ShellMode.TRACKER else False
+
+    def do_joystick(self,line) : 
+        """
+        Command the remote device according to the joystick
+        """
+        parser = Parser()
+        parser.add_argument("distance_step", type=int, help="Change pwm_send parameter")
+        parser.add_argument("offset_step", type=int, help="Change offset parameter")
+        args=parser.parse_args(line)
+
+        print("Commanding remote to start a free movement...")
+
+        distance = 0
+        offset = 0
+
+        with JoystickModeGuard(self):
+            while True : 
+                key = getkey()
+                if key == 'z': 
+                    distance += args.distance_step
+                elif key == 's':
+                    distance -= args.distance_step
+                elif key == 'q': 
+                    offset += args.offset_step
+                elif key == 'd':
+                    offset -= args.offset_step
+                elif key == ' ': 
+                    return
+                else:
+                    pwm = 0
+                
+                self._remote.pipe.send(remote.Order(rpc.set_joystick,distance, offset))
+                tm.sleep(10e-3)
+
+
+    def do_pid(self, line):
+        """
+        Change the PID parameters of the remote device and store them locally
+        """
+        parser = Parser()
+        parser.add_argument(
+            "--left-kp",
+            "-lkp",
+            type=float,
+            default=None,
+            help="Change left kp parameters",
+        )
+        parser.add_argument(
+            "--left-ki",
+            "-lki",
+            type=float,
+            default=None,
+            help="Change left ki parameters",
+        )
+        parser.add_argument(
+            "--left-kd",
+            "-lkd",
+            type=float,
+            default=None,
+            help="Change left kd parameters",
+        )
+        parser.add_argument(
+            "--right-kp",
+            "-rkp",
+            type=float,
+            default=None,
+            help="Change right kp parameters",
+        )
+        parser.add_argument(
+            "--right-ki",
+            "-rki",
+            type=float,
+            default=None,
+            help="Change right ki parameters",
+        )
+        parser.add_argument(
+            "--right-kd",
+            "-rkd",
+            type=float,
+            default=None,
+            help="Change right kd parameters",
+        )
+        parser.add_argument(
+            "--translation-kp",
+            "-trkp",
+            type=float,
+            default=None,
+            help="Change translation kp parameters",
+        )
+        parser.add_argument(
+            "--translation-ki",
+            "-trki",
+            type=float,
+            default=None,
+            help="Change translation ki parameters",
+        )
+        parser.add_argument(
+            "--translation-kd",
+            "-trkd",
+            type=float,
+            default=None,
+            help="Change translation kd parameters",
+        )
+        parser.add_argument(
+            "--rotation-kp",
+            "-rtkp",
+            type=float,
+            default=None,
+            help="Change rotation kp parameters",
+        )
+        parser.add_argument(
+            "--rotation-ki",
+            "-rtki",
+            type=float,
+            default=None,
+            help="Change rotation ki parameters",
+        )
+        parser.add_argument(
+            "--rotation-kd",
+            "-rtkd",
+            type=float,
+            default=None,
+            help="Change rotation kd parameters",
+        )
+        args = parser.parse_args(line)
+
+        pid = {}
+        with open(self._pid_path) as f:
+            pid = literal_eval(f.read())
+
+        if not any(map(lambda x: x is not None, vars(args).values())):
+            pprint(pid)
+            return
+
+        if args.left_kp is not None:
+            pid["left"]["kp"] = args.left_kp
+        if args.left_ki is not None:
+            pid["left"]["ki"] = args.left_ki
+        if args.left_kd is not None:
+            pid["left"]["kd"] = args.left_kd
+        if args.right_kp is not None:
+            pid["right"]["kp"] = args.right_kp
+        if args.right_ki is not None:
+            pid["right"]["ki"] = args.right_ki
+        if args.right_kd is not None:
+            pid["right"]["kd"] = args.right_kd
+        if args.translation_kp is not None:
+            pid["translation"]["kp"] = args.translation_kp
+        if args.translation_ki is not None:
+            pid["translation"]["ki"] = args.translation_ki
+        if args.translation_kd is not None:
+            pid["translation"]["kd"] = args.translation_kd
+        if args.rotation_kp is not None:
+            pid["rotation"]["kp"] = args.rotation_kp
+        if args.rotation_ki is not None:
+            pid["rotation"]["ki"] = args.rotation_ki
+        if args.rotation_kd is not None:
+            pid["rotation"]["kd"] = args.rotation_kd
+
+        if (
+            args.left_kp is not None
+            or args.left_ki is not None
+            or args.left_kd is not None
+        ):
+            print("Changing left PID parameters...")
+            self._remote.pipe.send(
+                remote.Order(rpc.set_left_pid, *pid["left"].values())
+            )
+        if (
+            args.right_kp is not None
+            or args.right_ki is not None
+            or args.right_kd is not None is not None
+        ):
+            print("Changing right PID parameters...")
+            self._remote.pipe.send(
+                remote.Order(rpc.set_right_pid, *pid["right"].values())
+            )
+        if (
+            args.translation_kp is not None
+            or args.translation_ki is not None
+            or args.translation_kd is not None
+        ):
+            print("Changing translation PID parameters...")
+            self._remote.pipe.send(
+                remote.Order(rpc.set_translation_pid, *pid["translation"].values())
+            )
+        if (
+            args.rotation_kp is not None
+            or args.rotation_ki is not None
+            or args.rotation_kd is not None
+        ):
+            print("Changing rotation PID parameters...")
+            self._remote.pipe.send(
+                remote.Order(rpc.set_rotation_pid, *pid["rotation"].values())
+            )
+
+        with open(self._pid_path, "w") as f:
+            f.write(repr(pid))
+
     def do_quit(self, line):
         """
         Quit the current mode
@@ -161,6 +439,7 @@ class ShellMode(Enum):
     BASE = 0
     TRACKER = 1
     DUMP = 2
+    JOYSTICK = 3
 
 
 class ShellModeGuard:
@@ -194,6 +473,7 @@ class ShellModeGuard:
         self._shell.prompt = Match(self._mode) & {
             ShellMode.TRACKER: "[shell > tracker] -- ",
             ShellMode.DUMP: "[shell > dump] -- ",
+            ShellMode.JOYSTICK: "[shell > joystick] -- ",
         }
         self._set()
 
@@ -226,6 +506,21 @@ class TrackerModeGuard(ShellModeGuard):
         self._shell._remote.pipe.send(remote.Order(rpc.release_motor))
         self._shell._remote.pipe.send(remote.Order(rpc.set_mode, rpc.HubMode.BASE))
 
+
+class JoystickModeGuard(ShellModeGuard): 
+    """
+    Configures the remote device interface for free movement with the joystick
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(mode=ShellMode.JOYSTICK, *args, **kwargs)
+
+    def _set(self):
+        pass
+    
+
+    def _restore(self):
+        self._shell._remote.pipe.send(remote.Order(rpc.release_motor))
 
 class DumpModeGuard(ShellModeGuard):
     """
