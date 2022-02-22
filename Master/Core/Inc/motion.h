@@ -8,7 +8,7 @@
 
 typedef int32_t Motion_Tick;
 typedef int32_t Motion_PWM;
-typedef Shared_PID_K Motion_PID_K;
+typedef double Motion_PID_K;
 
 /* unsigned int channels[] = { faire tableau pour relier Motion_Channel à MO
 
