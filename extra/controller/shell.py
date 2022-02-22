@@ -12,13 +12,13 @@ from ast import literal_eval
 from enum import Enum
 from os import path
 from pprint import pprint
-from getkey import getkey, keys
 
 import controller_rpc as rpc
 import matplotlib.pyplot as plt
 import numpy as np
 import remote
 import tracker as trk
+from getkey import getkey, keys
 from tracker import Tracker
 from utility.match import Match
 
@@ -224,14 +224,14 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self._tracker.pipe.send(trk.Setpoint(angle))
         return True if self._mode is ShellMode.TRACKER else False
 
-    def do_joystick(self,line) : 
+    def do_joystick(self, line):
         """
         Command the remote device according to the joystick
         """
         parser = Parser()
         parser.add_argument("distance_step", type=int, help="Change pwm_send parameter")
         parser.add_argument("offset_step", type=int, help="Change offset parameter")
-        args=parser.parse_args(line)
+        args = parser.parse_args(line)
 
         print("Commanding remote to start a free movement...")
 
@@ -239,24 +239,23 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         offset = 0
 
         with JoystickModeGuard(self):
-            while True : 
+            while True:
                 key = getkey()
-                if key == 'z': 
+                if key == "z":
                     distance += args.distance_step
-                elif key == 's':
+                elif key == "s":
                     distance -= args.distance_step
-                elif key == 'q': 
+                elif key == "q":
                     offset += args.offset_step
-                elif key == 'd':
+                elif key == "d":
                     offset -= args.offset_step
-                elif key == ' ': 
+                elif key == " ":
                     return
                 else:
                     pwm = 0
-                
-                self._remote.pipe.send(remote.Order(rpc.set_joystick,distance, offset))
-                tm.sleep(10e-3)
 
+                self._remote.pipe.send(remote.Order(rpc.set_joystick, distance, offset))
+                tm.sleep(10e-3)
 
     def do_pid(self, line):
         """
@@ -507,7 +506,7 @@ class TrackerModeGuard(ShellModeGuard):
         self._shell._remote.pipe.send(remote.Order(rpc.set_mode, rpc.HubMode.BASE))
 
 
-class JoystickModeGuard(ShellModeGuard): 
+class JoystickModeGuard(ShellModeGuard):
     """
     Configures the remote device interface for free movement with the joystick
     """
@@ -516,11 +515,11 @@ class JoystickModeGuard(ShellModeGuard):
         super().__init__(mode=ShellMode.JOYSTICK, *args, **kwargs)
 
     def _set(self):
-        pass
-    
+        self._shell._remote.pipe.send(remote.Order(rpc.start_joystick))
 
     def _restore(self):
         self._shell._remote.pipe.send(remote.Order(rpc.release_motor))
+
 
 class DumpModeGuard(ShellModeGuard):
     """

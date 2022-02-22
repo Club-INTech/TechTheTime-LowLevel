@@ -300,8 +300,13 @@ void Motion_Set_Counterclockwise_Rotation_Setpoint(Shared_Tick setpoint) {
 	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_COUNTERCLOCKWISE, setpoint);
 }
 
+void Motion_Start_Joystick(void) {
+	distance_arg = 0;
+	offset_arg = 0;
+	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_FREE, 0);
+}
+
 void Motion_Set_Joystick(Shared_Tick distance, Shared_Tick offset) {
-	motion_arg = MOTION_MOVEMENT_TYPE_FREE;
 	distance_arg = distance;
 	offset_arg = offset;
 }

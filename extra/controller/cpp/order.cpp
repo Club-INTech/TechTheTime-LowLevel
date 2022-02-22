@@ -97,9 +97,11 @@ PYBIND11_MODULE(controller_rpc, m) {
                                                      TO_SHARED_PID_K_FIXED_POINT(kd)) >>
         serial_output;
   });
-  m.def("set_joystick", [](Shared_Tick distance, Shared_Tick offset, const std::function<void(upd::byte_t)> &serial_output) {
-    rpc::master::keyring.get<Motion_Set_Joystick>()(distance, offset) >> serial_output; 
-  });
+  m.def("start_joystick", make_command(rpc::master::keyring.get<Motion_Start_Joystick>()));
+  m.def("set_joystick",
+        [](Shared_Tick distance, Shared_Tick offset, const std::function<void(upd::byte_t)> &serial_output) {
+          rpc::master::keyring.get<Motion_Set_Joystick>()(distance, offset) >> serial_output;
+        });
   m.def("set_mode", make_command(rpc::master::keyring.get<Hub_Set_Mode>()));
   m.def("release_motor", make_command(rpc::master::keyring.get<Motion_Release>()));
   m.attr("HEADER") = std::vector<uint8_t>{0xff, 0xff, 0xff};
