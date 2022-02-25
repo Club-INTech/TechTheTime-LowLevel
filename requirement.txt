@@ -3,4 +3,4 @@
 numpy
 matplotlib
 pyserial
-getkey
+keyboard

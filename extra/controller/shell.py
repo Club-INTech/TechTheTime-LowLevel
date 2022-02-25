@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import remote
 import tracker as trk
-from getkey import getkey, keys
+from keyboard import is_pressed
 from tracker import Tracker
 from utility.match import Match
 
@@ -258,19 +258,16 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         with JoystickModeGuard(self):
             while True:
-                key = getkey()
-                if key == "z":
+                if is_pressed("z"):
                     distance += args.distance_step
-                elif key == "s":
+                if is_pressed("s"):
                     distance -= args.distance_step
-                elif key == "q":
+                if is_pressed("q"):
                     offset += args.offset_step
-                elif key == "d":
+                if is_pressed("d"):
                     offset -= args.offset_step
-                elif key == " ":
+                if is_pressed(" "):
                     return
-                else:
-                    pwm = 0
 
                 self._remote.pipe.send(remote.Order(rpc.set_joystick, distance, offset))
                 tm.sleep(10e-3)
