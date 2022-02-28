@@ -238,41 +238,52 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         pwm = args.pwm
 
+        print("Commanding remote to start a free movement...")
+        print("Press SPACE to stop")
         self._remote.pipe.send(remote.Order(rpc.set_free_movement, pwm))
 
-        while True:
-            if getkey() == " ":
-                self._remote.pipe.send(remote.Order(rpc.release_motor))
-                return True if self._mode is ShellMode.TRACKER else False
+        while (
+            self._mode != ShellMode.TRACKER
+            or self._tracker.get_status() == trk.Status.READY
+        ) and not is_pressed(" "):
+            tm.sleep(100e-3)
+
+        self._remote.pipe.send(remote.Order(rpc.release_motor))
+
+        return True if self._mode is ShellMode.TRACKER else False
 
     def do_joystick(self, line):
         """
         Command the remote device according to the joystick
         """
         parser = Parser()
-        parser.add_argument("distance_step", type=int, help="Change distance parameter")
-        parser.add_argument("offset_step", type=int, help="Change offset parameter")
+        parser.add_argument(
+            "translate_step", type=int, help="Minimal distance traveled in one step"
+        )
+        parser.add_argument("rotate_step", type=int, help="Minimal angle in one step")
         args = parser.parse_args(line)
 
         print("Commanding remote to start a free movement...")
 
-        distance = 0
-        offset = 0
-
         with JoystickModeGuard(self):
             while True:
                 if is_pressed("z"):
-                    distance += args.distance_step
-                if is_pressed("s"):
-                    distance -= args.distance_step
+                    self._remote.pipe.send(remote.Order(rpc.translate, translate_step))
+                    tm.sleep(10e-3)
+                elif is_pressed("s"):
+                    self._remote.pipe.send(remote.Order(rpc.translate, -translate_step))
+                    tm.sleep(10e-3)
+
                 if is_pressed("q"):
-                    offset += args.offset_step
-                if is_pressed("d"):
-                    offset -= args.offset_step
+                    self._remote.pipe.send(remote.Order(rpc.rotate, rotate_step))
+                    tm.sleep(10e-3)
+                elif is_pressed("d"):
+                    self._remote.pipe.send(remote.Order(rpc.rotate, -rotate_step))
+                    tm.sleep(10e-3)
+
                 if is_pressed(" "):
                     return
 
-                self._remote.pipe.send(remote.Order(rpc.set_joystick, distance, offset))
                 tm.sleep(10e-3)
 
     def do_pid(self, line):

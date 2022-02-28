@@ -57,7 +57,7 @@ class Tracker:
         """
         End the tracking
         """
-        if self.get_status() != Status.STOPPED:
+        if self.get_status() == Status.READY:
             self.pipe.send(Command.STOP)
         self._process.join()
 
@@ -104,7 +104,8 @@ class Status(Enum):
     """
 
     READY = 0
-    STOPPED = 1
+    SHOWING_RECORD = 1
+    STOPPED = 2
 
 
 class Setpoint:
@@ -180,6 +181,7 @@ class _TrackerProcess:
         plt.close(self._fig)
 
         if self._shows_record and len(self._left_ticks_plot.get_xdata()) > 0:
+            self._pipe.send(Status.SHOWING_RECORD)
             self._show_record()
 
         self._pipe.send(Status.STOPPED)
