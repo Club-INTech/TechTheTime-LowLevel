@@ -5,6 +5,7 @@ Shell interface
 import argparse
 import cmd
 import itertools as it
+import multiprocessing as mp
 import sys
 import textwrap
 import time as tm
@@ -45,11 +46,13 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Open a serial port from communication with a remote device and initialize the tracker context manager
         """
+        remote_tracker_pipe = mp.Pipe()
+
         super().__init__()
         self.prompt = "[shell] -- "
         self._mode = ShellMode.BASE
-        self._tracker = Tracker()
-        self._remote = remote.Stream(port=port, tracker_pipe=self._tracker.pipe)
+        self._tracker = Tracker(remote_pipe=remote_tracker_pipe[0])
+        self._remote = remote.Stream(port=port, tracker_pipe=remote_tracker_pipe[1])
         self._pid_path = path.dirname(__file__) + "/data/pid"
 
         if path.exists(self._pid_path):
@@ -223,22 +226,22 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         self._tracker.pipe.send(trk.Setpoint(angle))
         return True if self._mode is ShellMode.TRACKER else False
-    
-    def do_free(self, line) : 
+
+    def do_free(self, line):
         """
         Command the remote device for an infinite translation until space is pressed
         """
 
         parser = Parser()
         parser.add_argument("pwm", type=int, help="Change pwm parameter")
-        args=parser.parse_args(line)
+        args = parser.parse_args(line)
 
-        pwm=args.pwm
+        pwm = args.pwm
 
         self._remote.pipe.send(remote.Order(rpc.set_free_movement, pwm))
 
-        while True : 
-            if getkey() == ' ' :
+        while True:
+            if getkey() == " ":
                 self._remote.pipe.send(remote.Order(rpc.release_motor))
                 return True if self._mode is ShellMode.TRACKER else False
 
