@@ -139,8 +139,12 @@ class _TrackerProcess:
         The function will keep running until any data is received through the pipe
         """
 
-        # Setup the pyplot display, notify the other end of the shell pipe and wait for a command or a measure
-        self._setup()
+        self._setup_display()
+
+        # Purge the remote pipe from remaining measures from last tracking
+        while self._remote_pipe.poll():
+            self._remote_pipe.recv()
+
         self._pipe.send(Status.READY)
         while not self._is_running:
             # Start tracking when detecting a measure beyond the detection threshold
@@ -186,7 +190,7 @@ class _TrackerProcess:
 
         self._pipe.send(Status.STOPPED)
 
-    def _setup(self):
+    def _setup_display(self):
         """
         Setup the pyplot display
         """
@@ -263,7 +267,7 @@ class _TrackerProcess:
             return
 
         measure_data = [
-            measure.left_encoder_ticks - measure.right_encoder_ticks,
+            measure.right_encoder_ticks - measure.left_encoder_ticks,
             measure.left_encoder_ticks,
             measure.right_encoder_ticks,
         ]

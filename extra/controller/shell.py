@@ -246,7 +246,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
             self._mode != ShellMode.TRACKER
             or self._tracker.get_status() == trk.Status.READY
         ) and not is_pressed(" "):
-            tm.sleep(100e-3)
+            tm.sleep(50e-3)
 
         self._remote.pipe.send(remote.Order(rpc.release_motor))
 
