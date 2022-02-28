@@ -348,14 +348,46 @@ class _TrackerProcess:
         left_ticks_axis = tuple(map(list, zip(*left_ticks_points)))
         right_ticks_axis = tuple(map(list, zip(*right_ticks_points)))
 
+        # Make derivatives of these plots
+        left_ticks_dt_axis, right_ticks_dt_axis = (left_ticks_axis[0][1:], []), (
+            right_ticks_axis[0][1:],
+            [],
+        )
+        (last_t, last_x) = left_ticks_points[0]
+        for (t, x) in left_ticks_points[1:]:
+            left_ticks_dt_axis[1].append((x - last_x) / (t - last_t))
+            last_t = t
+            last_x = x
+        (last_t, last_x) = right_ticks_points[0]
+        for (t, x) in right_ticks_points[1:]:
+            right_ticks_dt_axis[1].append((x - last_x) / (t - last_t))
+            last_t = t
+            last_x = x
+
         plt.ioff()
-        plt.figure()
-        plt.grid(color="xkcd:gunmetal", linestyle=":")
-        self._right_ax.set_xlabel("Ticks")
-        self._right_ax.set_ylabel("Time (s)")
-        plt.xlim(0, left_ticks_axis[0][-1])
-        plt.plot(left_ticks_axis[0], left_ticks_axis[1], color="r", label="Left")
-        plt.plot(right_ticks_axis[0], right_ticks_axis[1], color="b", label="Right")
+        fig, ax = plt.subplots()
+        ax.grid(color="xkcd:gunmetal", linestyle=":")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Ticks")
+        ax.set_xlim(0, left_ticks_axis[0][-1])
+        ax.plot(*left_ticks_axis, color="r", label="Left")
+        ax.plot(*right_ticks_axis, color="b", label="Right")
+
+        dt_ax = ax.twinx()
+        dt_ax.set_ylabel("Ticks derivative (s-1)")
+        dt_ax.plot(
+            *left_ticks_dt_axis,
+            color="tab:red",
+            linestyle="dotted",
+            label="Left derivative"
+        )
+        dt_ax.plot(
+            *right_ticks_dt_axis,
+            color="tab:blue",
+            linestyle="dotted",
+            label="Right derivative"
+        )
+
         if self._setpoint:
             plt.axhline(y=self._setpoint.value, color="g", linestyle="--")
         plt.legend(loc="best")
