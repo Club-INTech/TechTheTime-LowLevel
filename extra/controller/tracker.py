@@ -389,6 +389,6 @@ class _TrackerProcess:
         )
 
         if self._setpoint:
-            plt.axhline(y=self._setpoint.value, color="g", linestyle="--")
+            ax.axhline(y=self._setpoint.value, color="g", linestyle="--")
         plt.legend(loc="best")
         plt.show()
