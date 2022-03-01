@@ -212,12 +212,14 @@ Motion_PWM Motion_Compute_PID(Motion_Tick setpoint, Motion_Tick position, Motion
 
 double Motion_PWM_Base_Right(void)
 {
-	return fmax(0, fmin((double) Motion_Get_Right_Ticks() / MOTION_STARTUP_DISTANCE, 1));
+	Motion_Tick origin = fmin(finalsetpoint_arg - MOTION_STARTUP_DISTANCE, 0);
+	return fmax(0, fmin((double) (Motion_Get_Right_Ticks() - origin) / MOTION_STARTUP_DISTANCE, 1));
 }
 
 double Motion_PWM_Base_Left(void)
 {
-	return fmax(0, fmin((double) Motion_Get_Left_Ticks() / MOTION_STARTUP_DISTANCE, 1));
+	Motion_Tick origin = fmin(finalsetpoint_arg - MOTION_STARTUP_DISTANCE, 0);
+	return fmax(0, fmin((double) (Motion_Get_Left_Ticks() - origin) / MOTION_STARTUP_DISTANCE, 1));
 }
 
 void Motion_Translation_Forward(Motion_Tick finalsetpoint)
