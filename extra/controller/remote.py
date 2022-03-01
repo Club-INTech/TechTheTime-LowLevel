@@ -11,7 +11,7 @@ import controller_rpc as rpc
 import serial as sr
 from utility.match import Match
 
-REFRESH_DELAY_S = 5e-3
+REFRESH_DELAY_S = 50e-3
 SERIAL_TIMEOUT_S = 1e-3
 KEEPALIVE_DELAY_S = 500e-3
 
@@ -109,7 +109,7 @@ class _StreamProcess:
         while True:
             tm.sleep(REFRESH_DELAY_S)
             try:
-                if self._find_header():
+                while self._find_header():
                     Match(rpc.FrameType(self._read_and_unstuff())) & {
                         rpc.FrameType.REQUEST: self._handle_request,
                         rpc.FrameType.RESPONSE: lambda: None,
