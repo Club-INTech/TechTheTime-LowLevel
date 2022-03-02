@@ -17,11 +17,13 @@ from shutil import copyfile
 from sys import stdin, stdout
 from termios import TCIFLUSH, tcflush
 
+import colorama
 import controller_rpc as rpc
 import matplotlib.pyplot as plt
 import numpy as np
 import remote
 import tracker as trk
+from colorama import Fore, Style
 from keyboard import block_key, is_pressed, send, unhook_all
 from tracker import Tracker
 from utility.match import Match
@@ -58,8 +60,9 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self._remote = remote.Stream(port=port, tracker_pipe=remote_tracker_pipe[1])
 
         if path.exists(self._get_pid_path()):
-            print("Loading the stored PID parameters into remote...")
-            with open(self._get_pid_path()) as f:
+            with self._log_attempt(
+                "Loading the stored PID parameters into remote"
+            ), open(self._get_pid_path()) as f:
                 pid = literal_eval(f.read())
                 self._remote.pipe.send(
                     remote.Order(rpc.set_left_pid, *map(float, pid["left"].values()))
@@ -98,10 +101,10 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Parser().parse_args(line)
         with DumpModeGuard(self):
-            print(
+            self._log_status(
                 "Input from serial will be dump in the terminal between each user input"
             )
-            print("Type 'quit' to disable serial dumping")
+            self._log_status("Type 'quit' to disable serial dumping")
             run_shell(self)
 
     def do_sendraw(self, line):
@@ -118,7 +121,8 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
             raise ShellException(
                 "The byte sequence must be given in the following format: 'sendraw xx xx xx xx...' Where x are hexadecimal digits"
             )
-        self._remote.pipe.send(bytes(map(lambda x: int("0x" + x, 16), args.input)))
+        with self._log_attempt(f"Sending '{args.input}' to remote"):
+            self._remote.pipe.send(bytes(map(lambda x: int("0x" + x, 16), args.input)))
 
     def do_track(self, line):
         """
@@ -140,14 +144,16 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         )
         args = parser.parse_args(line)
 
-        print("Arming the tracker...")
         self._tracker.shows_record = args.show_record
-        with self._tracker, TrackerModeGuard(self):
-            print("Tracker ready")
-            print("Tracker will be disarmed when tracking is over or by typing 'quit'")
-            self.onecmd(" ".join(args.exec)) if args.exec else run_shell(self)
 
-        print("Tracker is disarmed")
+        self._log_status("Arming the tracker...")
+        with self._tracker, TrackerModeGuard(self):
+            self._log_status("Tracker ready")
+            self._log_status(
+                "Tracker will be disarmed when tracking is over or by typing 'quit'"
+            )
+            self.onecmd(" ".join(args.exec)) if args.exec else run_shell(self)
+        self._log_status("Tracker is disarmed")
 
     def do_translate(self, line):
         """
@@ -179,8 +185,8 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         while self._remote.pipe.poll():
             self._remote.pipe.recv()
-        print("Commanding remote to start a translation...")
-        self._remote.pipe.send(remote.Order(rpc.translate, distance))
+        with self._log_attempt("Commanding remote to start a translation"):
+            self._remote.pipe.send(remote.Order(rpc.translate, distance))
 
         self._tracker.reset_timeout_counter()
         while self._tracker.timeout_counter_s < args.timeout:
@@ -219,8 +225,8 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         while self._remote.pipe.poll():
             self._remote.pipe.recv()
-        print("Commanding remote to start a rotation...")
-        self._remote.pipe.send(remote.Order(rpc.rotate, angle))
+        with self._log_attempt("Commanding remote to start a rotation"):
+            self._remote.pipe.send(remote.Order(rpc.rotate, angle))
 
         self._tracker.reset_timeout_counter()
         while self._tracker.timeout_counter_s < args.timeout:
@@ -240,8 +246,8 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         pwm = args.pwm
 
-        print("Commanding remote to start a free movement...")
-        print("Press SPACE to stop")
+        self._log_status("Commanding remote to start a free movement...")
+        self._log_status("Press SPACE to stop")
         self._remote.pipe.send(remote.Order(rpc.set_free_movement, pwm))
 
         while (
@@ -265,8 +271,8 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         parser.add_argument("angle_step", type=int, help="Minimal angle in one step")
         args = parser.parse_args(line)
 
-        print("Commanding remote to start a free movement...")
-
+        self._log_status("Commanding remote in joystick mode...")
+        self._log_status("Press SPACE to stop")
         with JoystickModeGuard(self):
             while True:
                 if is_pressed("z"):
@@ -332,7 +338,9 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         pid = {}
         try:
-            with open(self._get_pid_path(args.profile)) as f:
+            with self._log_attempt(f"Loading {args.profile}"), open(
+                self._get_pid_path(args.profile)
+            ) as f:
                 pid = literal_eval(f.read())
         except FileNotFoundError:
             raise ShellException(f"No such profile {args.profile}")
@@ -365,25 +373,23 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
             )
         args = parser.parse_args(line)
 
-        # Load the current PID parameters
         pid = {}
         with open(self._get_pid_path()) as f:
             pid = literal_eval(f.read())
 
-        # Update the PID parameters with provided arguments
         for ((target, _), coefficient) in product(targets, coefficients):
             if vars(args)[f"{target}_{coefficient}"] is not None:
                 pid[target][coefficient] = vars(args)[f"{target}_{coefficient}"]
 
-        # Update the PID parameters of remote
         for (target, _) in targets:
             if any(map(lambda x: vars(args)[f"{target}_{x}"], coefficients)):
-                print(f"Changing {target} PID parameters...")
-                self._remote.pipe.send(
-                    remote.Order(vars(rpc)[f"set_{target}_pid"], *pid[target].values())
-                )
+                with self._log_attempt(f"Changing {target} PID parameters on remote"):
+                    self._remote.pipe.send(
+                        remote.Order(
+                            vars(rpc)[f"set_{target}_pid"], *pid[target].values()
+                        )
+                    )
 
-        # Save the PID parameters of the current profile
         with open(self._get_pid_path(), "w") as f:
             f.write(repr(pid))
 
@@ -402,14 +408,16 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         args = parser.parse_args(line)
 
         if args.save is not None:
-            copyfile(self._get_pid_path(), self._get_pid_path(args.save))
+            with self._log_attempt(f"Saving profile {args.save}"):
+                copyfile(self._get_pid_path(), self._get_pid_path(args.save))
         elif not args.discard:
             raise ShellException(
                 "Attempted to load a new profile without saving the current one (to discard it, use the --discard flag)"
             )
 
         try:
-            copyfile(self._get_pid_path(args.profile), self._get_pid_path())
+            with self._log_attempt(f"Loading profile {args.profile}"):
+                copyfile(self._get_pid_path(args.profile), self._get_pid_path())
         except FileNotFoundError:
             raise ShellException(f"No such profile '{args.profile}'")
 
@@ -421,7 +429,8 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         parser.add_argument("profile", help="Profile to save to")
         args = parser.parse_args(line)
 
-        copyfile(self._get_pid_path(), self._get_pid_path(args.profile))
+        with self._log_attempt(f"Saving profile {args.profile}"):
+            copyfile(self._get_pid_path(), self._get_pid_path(args.profile))
 
     def do_quit(self, line):
         """
@@ -431,8 +440,28 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Parser().parse_args(line)
         return True
 
+    def _log_status(self, message):
+        print(message)
+
+    def _log_attempt(self, message):
+        return AttemptLogger(self, message)
+
     def _get_pid_path(self, profile=""):
         return path.dirname(__file__) + f"/data/{profile}.pid"
+
+
+class AttemptLogger:
+    def __init__(self, _, message):
+        self._message = message
+
+    def __enter__(self):
+        stdout.write(self._message + "... ")
+
+    def __exit__(self, exception_type, *_):
+        if exception_type is None:
+            print(Fore.GREEN + Style.BRIGHT + "Success" + Style.RESET_ALL)
+        else:
+            print(Fore.RED + Style.BRIGHT + "Failure" + Style.RESET_ALL)
 
 
 class ShellMode(Enum):
@@ -592,17 +621,21 @@ class Parser(argparse.ArgumentParser):
         function = Shell.__dict__["do_" + fname]
         super().__init__(
             prog=fname,
-            description=textwrap.dedent(function.__doc__),
+            description=Fore.GREEN + Style.NORMAL + textwrap.dedent(function.__doc__),
+            epilog=Style.RESET_ALL,
             formatter_class=argparse.RawDescriptionHelpFormatter,
             *args,
             **kwargs,
         )
 
     def parse_args(self, line):
+        print(Fore.RED + Style.BRIGHT)
         try:
             return super().parse_args(line.split())
         except SystemExit as e:
             raise ShellException()
+        finally:
+            print(Style.RESET_ALL)
 
 
 def run_shell(shell):
@@ -618,11 +651,15 @@ def run_shell(shell):
             is_running = False
         except ShellException as e:
             if e.message is not None:
-                print(e.message)
+                print(Fore.RED + Style.BRIGHT + e.message + Style.RESET_ALL)
 
 
 if __name__ == "__main__":
+    colorama.init()
     parser = argparse.ArgumentParser()
     parser.add_argument("port")
     args = parser.parse_args()
-    run_shell(Shell(port=args.port))
+    try:
+        run_shell(Shell(port=args.port))
+    finally:
+        colorama.deinit()
