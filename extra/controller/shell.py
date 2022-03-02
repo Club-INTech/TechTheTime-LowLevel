@@ -47,7 +47,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
     Execute commands received from a specified input stream and output to a specified output stream
     """
 
-    def __init__(self, port):
+    def __init__(self, port, out_stream=stdout, in_stream=stdin):
         """
         Open a serial port from communication with a remote device and initialize the tracker context manager
         """
@@ -58,6 +58,8 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self._mode = ShellMode.BASE
         self._tracker = Tracker(remote_pipe=remote_tracker_pipe[0])
         self._remote = remote.Stream(port=port, tracker_pipe=remote_tracker_pipe[1])
+        self._out = out_stream
+        self._in = in_stream
 
         if path.exists(self._get_pid_path()):
             with self._log_attempt(
@@ -99,7 +101,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Enable dump mode
         In dump mode, every byte received from serial is dumped to the specified output stream after each command.
         """
-        Parser().parse_args(line)
+        Parser(self).parse_args(line)
         with DumpModeGuard(self):
             self._log_status(
                 "Input from serial will be dump in the terminal between each user input"
@@ -129,7 +131,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Arm the tracker
         When a position measure will be received from the remote device, a pyplot display will appear ploting the position data.
         """
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument(
             "--show-record",
             "-sr",
@@ -161,7 +163,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         units_scales = {"tick": 1}
 
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument("distance", type=int, help="Length of the translation")
         parser.add_argument(
             "--unit",
@@ -201,7 +203,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         units_scales = {"tick": 1}
 
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument("angle", type=int, help="Angle of the rotation")
         parser.add_argument(
             "--unit",
@@ -240,7 +242,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Command the remote device for an infinite translation until space is pressed
         """
 
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument("pwm", type=int, help="Change pwm parameter")
         args = parser.parse_args(line)
 
@@ -264,7 +266,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Command the remote device according to the joystick
         """
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument(
             "distance_step", type=int, help="Minimal distance traveled in one step"
         )
@@ -292,11 +294,11 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
                 if is_pressed(" "):
                     # Clear stdin because it is filled wih the irrevelant keyboard input and hide the space input in the terminal
                     tcflush(stdin, TCIFLUSH)
-                    stdout.write("\r")
+                    self._out.write("\r")
                     return
 
                 # Hide the keyboard input in the terminal
-                stdout.write("\r" + 4 * " " + "\r")
+                self._out.write("\r" + 4 * " " + "\r")
 
                 self._remote.pipe.send(remote.Order(rpc.set_joystick, distance, angle))
                 tm.sleep(100e-3)
@@ -332,7 +334,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         ]
         coefficients = ["kp", "ki", "kd"]
 
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument("profile", help="Target profile", nargs="?", default="")
         args = parser.parse_args(line)
 
@@ -346,9 +348,9 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
             raise ShellException(f"No such profile {args.profile}")
 
         for (target, _) in targets:
-            print(f"- {target}")
+            self._out.write(f"- {target}\n")
             for coefficient in coefficients:
-                print(f"-- {coefficient}: {pid[target][coefficient]:e}")
+                self._out.write(f"-- {coefficient}: {pid[target][coefficient]:e}\n")
 
     def do_pid_set(self, line):
         """
@@ -362,7 +364,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         ]
         coefficients = ["kp", "ki", "kd"]
 
-        parser = Parser()
+        parser = Parser(self)
         for ((target, abreviation), coefficient) in product(targets, coefficients):
             parser.add_argument(
                 f"--{target}-{coefficient}",
@@ -397,7 +399,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Load a PID profile and make it the current one
         """
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument("profile", help="Target profile")
         parser.add_argument(
             "--save", "-s", nargs=1, help="Save the current PID profile"
@@ -425,7 +427,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Save the current PID profile
         """
-        parser = Parser()
+        parser = Parser(self)
         parser.add_argument("profile", help="Profile to save to")
         args = parser.parse_args(line)
 
@@ -437,11 +439,11 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Quit the current mode
         If the shell is not in any mode, the shell will stop after this command.
         """
-        Parser().parse_args(line)
+        Parser(self).parse_args(line)
         return True
 
     def _log_status(self, message):
-        print(message)
+        self._out.write(message + "\n")
 
     def _log_attempt(self, message):
         return AttemptLogger(self, message)
@@ -451,17 +453,22 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
 
 class AttemptLogger:
-    def __init__(self, _, message):
+    def __init__(self, shell, message):
+        self._shell = shell
         self._message = message
 
     def __enter__(self):
-        stdout.write(self._message + "... ")
+        self._shell._out.write(self._message + "... ")
 
     def __exit__(self, exception_type, *_):
         if exception_type is None:
-            print(Fore.GREEN + Style.BRIGHT + "Success" + Style.RESET_ALL)
+            self._shell._out.write(
+                Fore.GREEN + Style.BRIGHT + "Success" + Style.RESET_ALL + "\n"
+            )
         else:
-            print(Fore.RED + Style.BRIGHT + "Failure" + Style.RESET_ALL)
+            self._shell._out.write(
+                Fore.RED + Style.BRIGHT + "Failure" + Style.RESET_ALL + "\n"
+            )
 
 
 class ShellMode(Enum):
@@ -504,9 +511,15 @@ class ShellModeGuard:
             )
         self._shell._mode = self._mode
         self._shell.prompt = Match(self._mode) & {
-            ShellMode.TRACKER: "[shell > tracker] -- ",
-            ShellMode.DUMP: "[shell > dump] -- ",
-            ShellMode.JOYSTICK: "[shell > joystick] -- ",
+            ShellMode.TRACKER: Fore.CYAN
+            + Style.BRIGHT
+            + f"[shell > tracker] {Style.RESET_ALL}-- ",
+            ShellMode.DUMP: Fore.YELLOW
+            + Style.BRIGHT
+            + f"[shell > dump] {Style.RESET_ALL}-- ",
+            ShellMode.JOYSTICK: Fore.MAGENTA
+            + Style.BRIGHT
+            + f"[shell > joystick] {Style.RESET_ALL}-- ",
         }
         self._set()
 
@@ -596,11 +609,13 @@ class DumpModeGuard(ShellModeGuard):
 
         if data != b"":
             hline = "-" * (6 + 3 * 16)
-            print(" " * 3 + "| " + bytes(range(16)).hex(" ") + " |")
-            print(hline)
+            self._out.write(" " * 3 + "| " + bytes(range(16)).hex(" ") + " |\n")
+            self._out.write(hline + "\n")
             for i, row in enumerate(it.zip_longest(*([iter(data)] * 16), fillvalue=0)):
-                print("{:02x} | ".format(i << 4) + bytes(row).hex(" ") + " |")
-            print(hline)
+                self._out.write(
+                    "{:02x} | ".format(i << 4) + bytes(row).hex(" ") + " |\n"
+                )
+            self._out.write(hline) + "\n"
 
         return stop
 
@@ -616,7 +631,8 @@ class Parser(argparse.ArgumentParser):
     This class derivated from argparse.ArgumentParser is adapted for parsing command line arguments passed to the shell.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, shell, *args, **kwargs):
+        self._shell = shell
         fname = sys._getframe(1).f_code.co_name[3:]
         function = Shell.__dict__["do_" + fname]
         super().__init__(
@@ -629,13 +645,13 @@ class Parser(argparse.ArgumentParser):
         )
 
     def parse_args(self, line):
-        print(Fore.RED + Style.BRIGHT)
+        self._shell._out.write(Fore.RED + Style.BRIGHT)
         try:
             return super().parse_args(line.split())
         except SystemExit as e:
             raise ShellException()
         finally:
-            print(Style.RESET_ALL)
+            self._shell._out.write(Style.RESET_ALL)
 
 
 def run_shell(shell):
@@ -651,7 +667,9 @@ def run_shell(shell):
             is_running = False
         except ShellException as e:
             if e.message is not None:
-                print(Fore.RED + Style.BRIGHT + e.message + Style.RESET_ALL)
+                self._out.write(
+                    Fore.RED + Style.BRIGHT + e.message + Style.RESET_ALL + "\n"
+                )
 
 
 if __name__ == "__main__":
