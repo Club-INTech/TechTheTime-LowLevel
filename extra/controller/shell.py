@@ -13,6 +13,7 @@ from ast import literal_eval
 from enum import Enum
 from itertools import product
 from os import path
+from shutil import copyfile
 from sys import stdin, stdout
 from termios import TCIFLUSH, tcflush
 
@@ -296,6 +297,53 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
     def do_pid(self, line):
         """
+        Forward arguments to 'pid set', 'pid load' or 'pid save'
+        """
+
+        parser = Parser(add_help=False, prefix_chars="#@%")
+        parser.add_argument("mode", choices=["show", "set", "load", "save"])
+        parser.add_argument("args", nargs="*")
+        args = parser.parse_args(line)
+        return (
+            Match(args.mode)
+            & {
+                "show": lambda: self.do_pid_show,
+                "set": lambda: self.do_pid_set,
+                "load": lambda: self.do_pid_load,
+                "save": lambda: self.do_pid_save,
+            }
+        )(" ".join(args.args))
+
+    def do_pid_show(self, line):
+        """
+        Display the current PID profile
+        """
+        targets = [
+            ("left", "l"),
+            ("right", "r"),
+            ("translation", "tr"),
+            ("rotation", "rt"),
+        ]
+        coefficients = ["kp", "ki", "kd"]
+
+        parser = Parser()
+        parser.add_argument("profile", help="Target profile", nargs="?", default="")
+        args = parser.parse_args(line)
+
+        pid = {}
+        try:
+            with open(self._get_pid_path(args.profile)) as f:
+                pid = literal_eval(f.read())
+        except FileNotFoundError:
+            raise ShellException(f"No such profile {args.profile}")
+
+        for (target, _) in targets:
+            print(f"- {target}")
+            for coefficient in coefficients:
+                print(f"-- {coefficient}: {pid[target][coefficient]:e}")
+
+    def do_pid_set(self, line):
+        """
         Change the PID parameters of the remote device and store them locally
         """
         targets = [
@@ -322,14 +370,6 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         with open(self._get_pid_path()) as f:
             pid = literal_eval(f.read())
 
-        # Display the current PID parameters if no arguments have been provided
-        if not any(map(lambda x: x is not None, vars(args).values())):
-            for (target, _) in targets:
-                print(f"- {target}")
-                for coefficient in coefficients:
-                    print(f"-- {coefficient}: {pid[target][coefficient]:e}")
-            return
-
         # Update the PID parameters with provided arguments
         for ((target, _), coefficient) in product(targets, coefficients):
             if vars(args)[f"{target}_{coefficient}"] is not None:
@@ -337,7 +377,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         # Update the PID parameters of remote
         for (target, _) in targets:
-            if any(map(lambda x: vars(args)[target][x], coefficients)):
+            if any(map(lambda x: vars(args)[f"{target}_{x}"], coefficients)):
                 print(f"Changing {target} PID parameters...")
                 self._remote.pipe.send(
                     remote.Order(vars(rpc)[f"set_{target}_pid"], *pid[target].values())
@@ -346,6 +386,42 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         # Save the PID parameters of the current profile
         with open(self._get_pid_path(), "w") as f:
             f.write(repr(pid))
+
+    def do_pid_load(self, line):
+        """
+        Load a PID profile and make it the current one
+        """
+        parser = Parser()
+        parser.add_argument("profile", help="Target profile")
+        parser.add_argument(
+            "--save", "-s", nargs=1, help="Save the current PID profile"
+        )
+        parser.add_argument(
+            "--discard", action="store_true", help="Discard the current PID profile"
+        )
+        args = parser.parse_args(line)
+
+        if args.save is not None:
+            copyfile(self._get_pid_path(), self._get_pid_path(args.save))
+        elif not args.discard:
+            raise ShellException(
+                "Attempted to load a new profile without saving the current one (to discard it, use the --discard flag)"
+            )
+
+        try:
+            copyfile(self._get_pid_path(args.profile), self._get_pid_path())
+        except FileNotFoundError:
+            raise ShellException(f"No such profile '{args.profile}'")
+
+    def do_pid_save(self, line):
+        """
+        Save the current PID profile
+        """
+        parser = Parser()
+        parser.add_argument("profile", help="Profile to save to")
+        args = parser.parse_args(line)
+
+        copyfile(self._get_pid_path(), self._get_pid_path(args.profile))
 
     def do_quit(self, line):
         """
