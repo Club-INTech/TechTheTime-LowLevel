@@ -297,10 +297,10 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
     def do_pid(self, line):
         """
-        Forward arguments to 'pid set', 'pid load' or 'pid save'
+        Forward arguments to a 'pid' subcommand
         """
 
-        parser = Parser(add_help=False, prefix_chars="#@%")
+        parser = Parser(add_help=False, prefix_chars="¤")
         parser.add_argument("mode", choices=["show", "set", "load", "save"])
         parser.add_argument("args", nargs="*")
         args = parser.parse_args(line)
