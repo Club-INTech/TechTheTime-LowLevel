@@ -42,7 +42,7 @@ static Motion_PWM pwm_base = MOTION_PWM_BASE;
 static Motion_MovementType motion_arg = MOTION_MOVEMENT_TYPE_NONE;
 static Motion_Tick finalsetpoint_arg = 0;
 static Motion_Tick distance_arg = 0;
-static Motion_Tick offset_arg = 0;
+static Motion_Tick angle_arg = 0;
 static Motion_PWM pwm_arg_free = 0;
 
 static void Motion_Start_Motor(void) {
@@ -308,14 +308,18 @@ void Motion_Set_Counterclockwise_Rotation_Setpoint(Shared_Tick setpoint) {
 }
 
 void Motion_Start_Joystick(void) {
-	distance_arg = 0;
-	offset_arg = 0;
 	Motion_Init_Arg(MOTION_MOVEMENT_TYPE_JOYSTICK, 0);
 }
 
-void Motion_Set_Joystick(Shared_Tick distance, Shared_Tick offset) {
+void Motion_Set_Joystick(Shared_Tick distance, Shared_Tick angle) {
+	HAL_TIM_Base_Stop_IT(pwm_handler);
+
 	distance_arg = distance;
-	offset_arg = offset;
+	angle_arg = angle;
+	__HAL_TIM_SET_COUNTER(left_encoder_handler, 0);
+	__HAL_TIM_SET_COUNTER(right_encoder_handler, 0);
+
+	HAL_TIM_Base_Start_IT(pwm_handler);
 }
 
 void Motion_Set_Free_Movement(Shared_PWM pwm) {
@@ -347,14 +351,18 @@ void Motion_Set_Right_PID(Shared_PID_K kp, Shared_PID_K ki, Shared_PID_K kd) {
 	right_profile.ki = FROM_SHARED_PID_K_FIXED_POINT(ki);
 }
 
-void Motion_Joystick(Motion_Tick distance, Motion_Tick offset) {
+void Motion_Joystick(Motion_Tick distance_setpoint, Motion_Tick angle_setpoint) {
 	// Lorsqu'on corrige le PWM au moteur grâce au PID, on donne la position d'une codeuse en consigne à l'autre pour chacune des deux
-	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(offset, Motion_Get_Left_Ticks(), &left_profile);
-	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(offset, Motion_Get_Right_Ticks(), &right_profile);
+	Motion_Tick distance = (Motion_Get_Left_Ticks() + Motion_Get_Right_Ticks()) / 2;
+	Motion_Tick angle = (Motion_Get_Left_Ticks() - Motion_Get_Right_Ticks()) / 2;
+	Motion_PWM left_pwm_setpoint = Motion_Compute_PID(Motion_Get_Right_Ticks() + MOTION_JOYSTICK_ANGLE_OUTREACH * angle_setpoint / 2, Motion_Get_Left_Ticks(), &left_profile);
+	Motion_PWM right_pwm_setpoint = Motion_Compute_PID(Motion_Get_Left_Ticks() - MOTION_JOYSTICK_ANGLE_OUTREACH * angle_setpoint/ 2, Motion_Get_Right_Ticks(), &right_profile);
+	Motion_PWM translation_pwm_setpoint = Motion_Compute_PID(distance_setpoint, distance, &translation_profile);
+	Motion_PWM rotation_pwm_setpoint = Motion_Compute_PID(angle_setpoint, angle, &rotation_profile);
 
 	// On met à jour les PWM aux moteurs
-	Motion_Update_Left_PWM(left_pwm_setpoint, MOTION_CHANNEL_FORWARD_LEFT, MOTION_CHANNEL_BACKWARD_LEFT);
-	Motion_Update_Right_PWM(right_pwm_setpoint, MOTION_CHANNEL_FORWARD_RIGHT, MOTION_CHANNEL_BACKWARD_RIGHT);
+	Motion_Update_Left_PWM(translation_pwm_setpoint + rotation_pwm_setpoint + left_pwm_setpoint, MOTION_CHANNEL_FORWARD_LEFT, MOTION_CHANNEL_BACKWARD_LEFT);
+	Motion_Update_Right_PWM(translation_pwm_setpoint - rotation_pwm_setpoint + right_pwm_setpoint, MOTION_CHANNEL_FORWARD_RIGHT, MOTION_CHANNEL_BACKWARD_RIGHT);
 }
 
 void Motion_Free_Movement(Motion_PWM pwm) {
@@ -388,9 +396,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		  Motion_Rotation_Counter_Clockwise(finalsetpoint_arg);
 		  break;
 	  case MOTION_MOVEMENT_TYPE_JOYSTICK:
-		  Motion_Joystick(distance_arg, offset_arg);
+		  Motion_Joystick(distance_arg, angle_arg);
+		  break;
 	  case MOTION_MOVEMENT_TYPE_FREE :
 		  Motion_Free_Movement(pwm_arg_free);
+		  break;
 	  default:
 		  break;
 	  }

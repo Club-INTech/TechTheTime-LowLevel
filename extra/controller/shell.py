@@ -13,13 +13,15 @@ from ast import literal_eval
 from enum import Enum
 from os import path
 from pprint import pprint
+from sys import stdin, stdout
+from termios import TCIFLUSH, tcflush
 
 import controller_rpc as rpc
 import matplotlib.pyplot as plt
 import numpy as np
 import remote
 import tracker as trk
-from keyboard import is_pressed
+from keyboard import block_key, is_pressed, send, unhook_all
 from tracker import Tracker
 from utility.match import Match
 
@@ -258,9 +260,9 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         parser = Parser()
         parser.add_argument(
-            "translate_step", type=int, help="Minimal distance traveled in one step"
+            "distance_step", type=int, help="Minimal distance traveled in one step"
         )
-        parser.add_argument("rotate_step", type=int, help="Minimal angle in one step")
+        parser.add_argument("angle_step", type=int, help="Minimal angle in one step")
         args = parser.parse_args(line)
 
         print("Commanding remote to start a free movement...")
@@ -268,23 +270,30 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         with JoystickModeGuard(self):
             while True:
                 if is_pressed("z"):
-                    self._remote.pipe.send(remote.Order(rpc.translate, translate_step))
-                    tm.sleep(10e-3)
+                    distance = args.distance_step
                 elif is_pressed("s"):
-                    self._remote.pipe.send(remote.Order(rpc.translate, -translate_step))
-                    tm.sleep(10e-3)
+                    distance = -args.distance_step
+                else:
+                    distance = 0
 
-                if is_pressed("q"):
-                    self._remote.pipe.send(remote.Order(rpc.rotate, rotate_step))
-                    tm.sleep(10e-3)
-                elif is_pressed("d"):
-                    self._remote.pipe.send(remote.Order(rpc.rotate, -rotate_step))
-                    tm.sleep(10e-3)
+                if is_pressed("d"):
+                    angle = args.angle_step
+                elif is_pressed("q"):
+                    angle = -args.angle_step
+                else:
+                    angle = 0
 
                 if is_pressed(" "):
+                    # Clear stdin because it is filled wih the irrevelant keyboard input and hide the space input in the terminal
+                    tcflush(stdin, TCIFLUSH)
+                    stdout.write("\r")
                     return
 
-                tm.sleep(10e-3)
+                # Hide the keyboard input in the terminal
+                stdout.write("\r" + 4 * " " + "\r")
+
+                self._remote.pipe.send(remote.Order(rpc.set_joystick, distance, angle))
+                tm.sleep(100e-3)
 
     def do_pid(self, line):
         """
