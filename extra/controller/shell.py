@@ -11,8 +11,8 @@ import textwrap
 import time as tm
 from ast import literal_eval
 from enum import Enum
+from itertools import product
 from os import path
-from pprint import pprint
 from sys import stdin, stdout
 from termios import TCIFLUSH, tcflush
 
@@ -55,11 +55,10 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         self._mode = ShellMode.BASE
         self._tracker = Tracker(remote_pipe=remote_tracker_pipe[0])
         self._remote = remote.Stream(port=port, tracker_pipe=remote_tracker_pipe[1])
-        self._pid_path = path.dirname(__file__) + "/data/pid"
 
-        if path.exists(self._pid_path):
+        if path.exists(self._get_pid_path()):
             print("Loading the stored PID parameters into remote...")
-            with open(self._pid_path) as f:
+            with open(self._get_pid_path()) as f:
                 pid = literal_eval(f.read())
                 self._remote.pipe.send(
                     remote.Order(rpc.set_left_pid, *map(float, pid["left"].values()))
@@ -70,7 +69,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
                 self._remote.pipe.send(
                     remote.Order(
                         rpc.set_translation_pid,
-                        *map(float, pid["translation"].values())
+                        *map(float, pid["translation"].values()),
                     )
                 )
                 self._remote.pipe.send(
@@ -79,7 +78,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
                     )
                 )
         else:
-            with open(self._pid_path, "w") as f:
+            with open(self._get_pid_path(), "w") as f:
                 f.write(
                     repr(
                         {
@@ -299,164 +298,53 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Change the PID parameters of the remote device and store them locally
         """
+        targets = [
+            ("left", "l"),
+            ("right", "r"),
+            ("translation", "tr"),
+            ("rotation", "rt"),
+        ]
+        coefficients = ["kp", "ki", "kd"]
+
         parser = Parser()
-        parser.add_argument(
-            "--left-kp",
-            "-lkp",
-            type=float,
-            default=None,
-            help="Change left kp parameters",
-        )
-        parser.add_argument(
-            "--left-ki",
-            "-lki",
-            type=float,
-            default=None,
-            help="Change left ki parameters",
-        )
-        parser.add_argument(
-            "--left-kd",
-            "-lkd",
-            type=float,
-            default=None,
-            help="Change left kd parameters",
-        )
-        parser.add_argument(
-            "--right-kp",
-            "-rkp",
-            type=float,
-            default=None,
-            help="Change right kp parameters",
-        )
-        parser.add_argument(
-            "--right-ki",
-            "-rki",
-            type=float,
-            default=None,
-            help="Change right ki parameters",
-        )
-        parser.add_argument(
-            "--right-kd",
-            "-rkd",
-            type=float,
-            default=None,
-            help="Change right kd parameters",
-        )
-        parser.add_argument(
-            "--translation-kp",
-            "-trkp",
-            type=float,
-            default=None,
-            help="Change translation kp parameters",
-        )
-        parser.add_argument(
-            "--translation-ki",
-            "-trki",
-            type=float,
-            default=None,
-            help="Change translation ki parameters",
-        )
-        parser.add_argument(
-            "--translation-kd",
-            "-trkd",
-            type=float,
-            default=None,
-            help="Change translation kd parameters",
-        )
-        parser.add_argument(
-            "--rotation-kp",
-            "-rtkp",
-            type=float,
-            default=None,
-            help="Change rotation kp parameters",
-        )
-        parser.add_argument(
-            "--rotation-ki",
-            "-rtki",
-            type=float,
-            default=None,
-            help="Change rotation ki parameters",
-        )
-        parser.add_argument(
-            "--rotation-kd",
-            "-rtkd",
-            type=float,
-            default=None,
-            help="Change rotation kd parameters",
-        )
+        for ((target, abreviation), coefficient) in product(targets, coefficients):
+            parser.add_argument(
+                f"--{target}-{coefficient}",
+                f"-{abreviation}{coefficient}",
+                type=float,
+                default=None,
+                help=f"Change {target} {coefficient} parameters",
+            )
         args = parser.parse_args(line)
 
+        # Load the current PID parameters
         pid = {}
-        with open(self._pid_path) as f:
+        with open(self._get_pid_path()) as f:
             pid = literal_eval(f.read())
 
+        # Display the current PID parameters if no arguments have been provided
         if not any(map(lambda x: x is not None, vars(args).values())):
-            pprint(pid)
+            for (target, _) in targets:
+                print(f"- {target}")
+                for coefficient in coefficients:
+                    print(f"-- {coefficient}: {pid[target][coefficient]:e}")
             return
 
-        if args.left_kp is not None:
-            pid["left"]["kp"] = args.left_kp
-        if args.left_ki is not None:
-            pid["left"]["ki"] = args.left_ki
-        if args.left_kd is not None:
-            pid["left"]["kd"] = args.left_kd
-        if args.right_kp is not None:
-            pid["right"]["kp"] = args.right_kp
-        if args.right_ki is not None:
-            pid["right"]["ki"] = args.right_ki
-        if args.right_kd is not None:
-            pid["right"]["kd"] = args.right_kd
-        if args.translation_kp is not None:
-            pid["translation"]["kp"] = args.translation_kp
-        if args.translation_ki is not None:
-            pid["translation"]["ki"] = args.translation_ki
-        if args.translation_kd is not None:
-            pid["translation"]["kd"] = args.translation_kd
-        if args.rotation_kp is not None:
-            pid["rotation"]["kp"] = args.rotation_kp
-        if args.rotation_ki is not None:
-            pid["rotation"]["ki"] = args.rotation_ki
-        if args.rotation_kd is not None:
-            pid["rotation"]["kd"] = args.rotation_kd
+        # Update the PID parameters with provided arguments
+        for ((target, _), coefficient) in product(targets, coefficients):
+            if vars(args)[f"{target}_{coefficient}"] is not None:
+                pid[target][coefficient] = vars(args)[f"{target}_{coefficient}"]
 
-        if (
-            args.left_kp is not None
-            or args.left_ki is not None
-            or args.left_kd is not None
-        ):
-            print("Changing left PID parameters...")
-            self._remote.pipe.send(
-                remote.Order(rpc.set_left_pid, *pid["left"].values())
-            )
-        if (
-            args.right_kp is not None
-            or args.right_ki is not None
-            or args.right_kd is not None is not None
-        ):
-            print("Changing right PID parameters...")
-            self._remote.pipe.send(
-                remote.Order(rpc.set_right_pid, *pid["right"].values())
-            )
-        if (
-            args.translation_kp is not None
-            or args.translation_ki is not None
-            or args.translation_kd is not None
-        ):
-            print("Changing translation PID parameters...")
-            self._remote.pipe.send(
-                remote.Order(rpc.set_translation_pid, *pid["translation"].values())
-            )
-        if (
-            args.rotation_kp is not None
-            or args.rotation_ki is not None
-            or args.rotation_kd is not None
-        ):
-            print("Changing rotation PID parameters...")
-            self._remote.pipe.send(
-                remote.Order(rpc.set_rotation_pid, *pid["rotation"].values())
-            )
+        # Update the PID parameters of remote
+        for (target, _) in targets:
+            if any(map(lambda x: vars(args)[target][x], coefficients)):
+                print(f"Changing {target} PID parameters...")
+                self._remote.pipe.send(
+                    remote.Order(vars(rpc)[f"set_{target}_pid"], *pid[target].values())
+                )
 
-        with open(self._pid_path, "w") as f:
+        # Save the PID parameters of the current profile
+        with open(self._get_pid_path(), "w") as f:
             f.write(repr(pid))
 
     def do_quit(self, line):
@@ -466,6 +354,9 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         Parser().parse_args(line)
         return True
+
+    def _get_pid_path(self, profile=""):
+        return path.dirname(__file__) + f"/data/{profile}.pid"
 
 
 class ShellMode(Enum):
@@ -628,7 +519,7 @@ class Parser(argparse.ArgumentParser):
             description=textwrap.dedent(function.__doc__),
             formatter_class=argparse.RawDescriptionHelpFormatter,
             *args,
-            **kwargs
+            **kwargs,
         )
 
     def parse_args(self, line):
