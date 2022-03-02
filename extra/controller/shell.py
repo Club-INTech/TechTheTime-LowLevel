@@ -12,7 +12,7 @@ import time as tm
 from ast import literal_eval
 from enum import Enum
 from itertools import product
-from os import path
+from os import listdir, path
 from shutil import copyfile
 from sys import stdin, stdout
 from termios import TCIFLUSH, tcflush
@@ -309,13 +309,14 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
 
         parser = Parser(self, add_help=False, prefix_chars="¤")
-        parser.add_argument("mode", choices=["show", "set", "load", "save"])
+        parser.add_argument("mode", choices=["show", "list", "set", "load", "save"])
         parser.add_argument("args", nargs="*")
         args = parser.parse_args(line)
         return (
             Match(args.mode)
             & {
                 "show": lambda: self.do_pid_show,
+                "list": lambda: self.do_pid_list,
                 "set": lambda: self.do_pid_set,
                 "load": lambda: self.do_pid_load,
                 "save": lambda: self.do_pid_save,
@@ -360,6 +361,29 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
                     Fore.YELLOW
                     + Style.BRIGHT
                     + f"-- {coefficient}{Style.RESET_ALL}: {pid[target][coefficient]:e}\n"
+                )
+
+    def do_pid_list(self, line):
+        """
+        List all the available PID profiles
+        """
+
+        parser = Parser(self)
+        parser.add_argument(
+            "--full", "-f", action="store_true", help="Show the PID parameters as well"
+        )
+        args = parser.parse_args(line)
+
+        profile_names = list(
+            map(lambda x: x[:-4], listdir(path.dirname(self._get_pid_path())))
+        )
+        if args.full:
+            for name in profile_names:
+                self.do_pid_show(name)
+        else:
+            for name in profile_names[1:]:
+                self._out.write(
+                    Fore.BLUE + Style.BRIGHT + name + "\n" + Style.RESET_ALL
                 )
 
     def do_pid_set(self, line):
