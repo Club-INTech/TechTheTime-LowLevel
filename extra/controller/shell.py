@@ -308,7 +308,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         Forward arguments to a 'pid' subcommand
         """
 
-        parser = Parser(add_help=False, prefix_chars="¤")
+        parser = Parser(self, add_help=False, prefix_chars="¤")
         parser.add_argument("mode", choices=["show", "set", "load", "save"])
         parser.add_argument("args", nargs="*")
         args = parser.parse_args(line)
@@ -347,10 +347,20 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         except FileNotFoundError:
             raise ShellException(f"No such profile {args.profile}")
 
+        profile_name = args.profile if args.profile != "" else "(current profile)"
+        self._out.write(
+            Fore.BLUE + Style.BRIGHT + f"{profile_name}\n" + Style.RESET_ALL
+        )
         for (target, _) in targets:
-            self._out.write(f"- {target}\n")
+            self._out.write(
+                Fore.YELLOW + Style.BRIGHT + f"- {target}\n" + Style.RESET_ALL
+            )
             for coefficient in coefficients:
-                self._out.write(f"-- {coefficient}: {pid[target][coefficient]:e}\n")
+                self._out.write(
+                    Fore.YELLOW
+                    + Style.BRIGHT
+                    + f"-- {coefficient}{Style.RESET_ALL}: {pid[target][coefficient]:e}\n"
+                )
 
     def do_pid_set(self, line):
         """
