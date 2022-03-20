@@ -169,6 +169,14 @@ Motion_Tick Motion_Get_Right_Ticks(void)
 	}
 }
 
+Shared_Tick Get_Left_Ticks(void) {
+	return Motion_Get_Left_Ticks();
+}
+
+Shared_Tick Get_Right_Ticks(void) {
+	return Motion_Get_Left_Ticks();
+}
+
 void Motion_Update_Left_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Channel Channel_b)
 {
 	if (pwm > 0) {    // tim_channel_1, tim_cHAL_TIM_Base_Start_IT(hannel_2
