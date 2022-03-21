@@ -169,12 +169,8 @@ Motion_Tick Motion_Get_Right_Ticks(void)
 	}
 }
 
-Shared_Tick Get_Left_Ticks(void) {
-	return Motion_Get_Left_Ticks();
-}
-
-Shared_Tick Get_Right_Ticks(void) {
-	return Motion_Get_Left_Ticks();
+uint64_t Get_Ticks(void) {
+	return (((uint64_t) Motion_Get_Left_Ticks()) << 16) + ((uint64_t) Motion_Get_Right_Ticks());
 }
 
 void Motion_Update_Left_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Channel Channel_b)
