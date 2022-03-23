@@ -169,8 +169,11 @@ Motion_Tick Motion_Get_Right_Ticks(void)
 	}
 }
 
-uint64_t Get_Ticks(void) {
-	return (((uint64_t) Motion_Get_Left_Ticks()) << 16) + ((uint64_t) Motion_Get_Right_Ticks());
+Shared_Encoded_Ticks Get_Ticks(void) {
+	Motion_Tick left_ticks = Motion_Get_Left_Ticks();
+	Motion_Tick right_ticks = Motion_Get_Right_Ticks();
+
+	return (((Shared_Encoded_Ticks) left_ticks) << 32) + (((Shared_Encoded_Ticks) right_ticks) & (((Shared_Encoded_Ticks) 1 << 32) - 1));
 }
 
 void Motion_Update_Left_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Channel Channel_b)
