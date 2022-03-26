@@ -173,11 +173,16 @@ Shared_Encoded_Ticks Get_Ticks(void) {
 	Motion_Tick left_ticks = Motion_Get_Left_Ticks();
 	Motion_Tick right_ticks = Motion_Get_Right_Ticks();
 
-	return (((Shared_Encoded_Ticks) left_ticks) << 32) + (((Shared_Encoded_Ticks) right_ticks) & (((Shared_Encoded_Ticks) 1 << 32) - 1));
+	return (((Shared_Encoded_Ticks) left_ticks) << 32u) | ((uint32_t) right_ticks);
 }
 
 Shared_Tick Get_Left_Ticks(void) {
-	return Motion_Get_Left_Ticks();
+	Shared_Tick left_ticks = Motion_Get_Left_Ticks();
+	if(left_ticks < 0) {
+		Shared_Tick abs_ticks = (-left_ticks);
+		return (abs_ticks) | ((Shared_Tick)(1 << 20));
+	}
+	return left_ticks;
 }
 
 Shared_Tick Get_Right_Ticks(void) {
