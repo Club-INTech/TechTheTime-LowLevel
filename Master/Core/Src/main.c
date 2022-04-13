@@ -25,6 +25,9 @@
 #include <math.h>
 #include "motion.h"
 #include "hl.h"
+#include "crc_calculation.h"
+#include "dxl.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,6 +53,7 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -59,10 +63,11 @@ const uint32_t pwm_base = 1e5;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -100,13 +105,41 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  HL_Init(&huart2);
   Motion_Init(&htim2, &htim4, &htim3);
+  HL_Init(&huart2);
+
+  //uint8_t first = 0xFF;
+   uint8_t Light1[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x41, 0x00, 0x01, 0xCC, 0xE6};
+   uint8_t Light2[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x02, 0x06, 0x00, 0x03, 0x41, 0x00, 0x01, 0x00, 0x00};
+   uint8_t Torque_On1[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x40, 0x00, 0x01, 0x00, 0x00};
+   uint8_t Torque_Off1[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x40, 0x00, 0x00, 0x00, 0x00};
+   uint8_t Torque_On2[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x02, 0x06, 0x00, 0x03, 0x40, 0x00, 0x01, 0x00, 0x00};
+   uint8_t Moov1[16]= {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x09, 0x00, 0x03, 0x74, 0x00, 0x00, 0x02, 0x00, 0x00, 0xCA, 0x89};
+   uint8_t Moov2[16] = {0xFF, 0xFF, 0xFD, 0x00, 0x02, 0x09, 0x00, 0x03, 0x74, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00};
+   uint8_t Ping[10] = {0xFF, 0xFF, 0xFD, 0x00, 0xFE, 0x03, 0x00, 0x01, 0x00, 0x00};
+   uint8_t Id2[] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x07, 0x00, 0x02, 0x00, 0x00};
+
+   update_crc_packet(Ping, sizeof(Ping));
+   update_crc_packet(Torque_On2, sizeof(Torque_On2));
+   update_crc_packet(Torque_Off1, sizeof(Torque_Off1));
+   update_crc_packet(Id2, sizeof(Id2));
+   update_crc_packet(Light2, sizeof(Light2));
+   update_crc_packet(Moov2, sizeof(Moov2));
+
+   HAL_GPIO_TogglePin (GPIOB, GPIO_PIN_6);
+
+   //HAL_UART_Transmit(&huart1, Torque_On2, sizeof(Torque_On2), 1000);
+   //HAL_UART_Transmit(&huart1, Id2, sizeof(Id2), 1000);
+
+
+   DXL_Init(&huart1);
+   //DXL_Torque_On(5);
 
   /* USER CODE END 2 */
 
@@ -114,6 +147,37 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  //HAL_UART_Transmit(&huart1, Id2, sizeof(Id2), 1000);
+	  //HAL_UART_Transmit(&huart1, Ping, sizeof(Ping), 1000);
+	  //DXL_Transmit(Light2, sizeof(Light2));
+	  //HAL_UART_Transmit(&huart1, Moov1, sizeof(Moov1), 1000);
+
+	  //DXL_Position(2,00000000); //faire attention à ne pas envoyer un ordre trop élevé, pb de transmission
+
+	  //HAL_UART_Transmit(&huart1, Ping, sizeof(Ping), 1000);
+	  //DXL_Light_On(5);
+	  //DXL_Update_Id(5,17);
+	  //DXL_Light_Off(17);
+	  //DXL_Position(5,0000);
+	  //HAL_Delay(1000);
+
+
+
+
+	  /*
+	   HAL_UART_Transmit (&huart1, &first, 1, 15);
+	  HAL_UART_Transmit (&huart1, Light, sizeof(Light), 15);
+
+
+	 	  for(int i=0;i<255;i++){
+	 		  HAL_UART_Transmit (&huart1, Light, sizeof(Light), 15);
+	 		  HAL_Delay(1000);
+	 		  Light[4]++;
+	 		  update_crc_packet(Light, sizeof(Light));
+	 		  i++;
+	 	  }
+	 	  */
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -166,7 +230,8 @@ void SystemClock_Config(void)
   }
   /** Initializes the peripherals clocks
   */
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_USART2;
+  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
@@ -340,6 +405,54 @@ static void MX_TIM4_Init(void)
   /* USER CODE BEGIN TIM4_Init 2 */
 
   /* USER CODE END TIM4_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 57600;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
 
 }
 

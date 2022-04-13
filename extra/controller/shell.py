@@ -713,5 +713,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         run_shell(Shell(port=args.port))
+        
     finally:
         colorama.deinit()
+        self._shell._remote.pipe.send(remote.Order(rpc.release_motor))
