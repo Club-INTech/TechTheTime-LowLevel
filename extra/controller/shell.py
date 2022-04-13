@@ -16,11 +16,13 @@ from os import listdir, path
 from shutil import copyfile
 from sys import stdin, stdout
 from termios import TCIFLUSH, tcflush
+from turtle import distance
 
 import colorama
 import controller_rpc as rpc
 import matplotlib.pyplot as plt
 import numpy as np
+import pygame
 import remote
 import tracker as trk
 from colorama import Fore, Style
@@ -262,6 +264,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         return True if self._mode is ShellMode.TRACKER else False
 
+
     def do_joystick(self, line):
         """
         Command the remote device according to the joystick
@@ -273,20 +276,44 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         parser.add_argument("angle_step", type=int, help="Minimal angle in one step")
         args = parser.parse_args(line)
 
+
+        """
+        Joystick setup
+        """
+        ###
+        pygame.joystick.init()
+        joy = pygame.joystick.Joystick(0)
+        joy.init()
+        self._log_status(str(joy.get_name()))
+        pygame.display.init()
+        ###
+
         self._log_status("Commanding remote in joystick mode...")
         self._log_status("Press SPACE to stop")
         with JoystickModeGuard(self):
             while True:
-                if is_pressed("z"):
+
+                pygame.event.pump()
+
+                """
+                self._log_status(str(joy.get_axis(0)))
+                self._log_status(str(joy.get_axis(1)))
+                """
+                
+                if is_pressed("z") or joy.get_axis(1) < -0.5:
+                    self._log_status("forward")
                     distance = args.distance_step
-                elif is_pressed("s"):
+                elif is_pressed("s") or joy.get_axis(1) > 0.5:
+                    self._log_status("backward")
                     distance = -args.distance_step
                 else:
                     distance = 0
 
-                if is_pressed("d"):
+                if is_pressed("d") or joy.get_axis(3) > 0.5:
+                    self._log_status("right")
                     angle = args.angle_step
-                elif is_pressed("q"):
+                elif is_pressed("q") or joy.get_axis(3) < -0.5:
+                    self._log_status("left")
                     angle = -args.angle_step
                 else:
                     angle = 0
