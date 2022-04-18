@@ -4,7 +4,7 @@ uint16_t CRC_xl = 0;
 uint16_t CRC_L_xl = 0;
 uint16_t CRC_H_xl = 0;
 
-uint16_t update_crc(uint16_t crc_accum, unsigned char *data_blk_ptr, uint16_t data_blk_size)
+uint16_t update_crc(uint16_t crc_accum, uint8_t *data_blk_ptr, uint16_t data_blk_size)
 {
     unsigned short i, j;
     unsigned short crc_table[256] = {
@@ -50,7 +50,7 @@ uint16_t update_crc(uint16_t crc_accum, unsigned char *data_blk_ptr, uint16_t da
 
     return crc_accum;
 }
-void update_crc_packet (unsigned char *data_blk_ptr, uint16_t size_ptr) {
+void update_crc_packet (uint8_t *data_blk_ptr, uint16_t size_ptr) {
 	CRC_xl = update_crc(0, data_blk_ptr, size_ptr - 2);
 	CRC_L_xl = (CRC_xl & 0x00FF);
 	CRC_H_xl = (CRC_xl >> 8) & 0x00FF;

@@ -111,8 +111,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  Motion_Init(&htim2, &htim4, &htim3);
   HL_Init(&huart2);
+  Motion_Init(&htim2, &htim4, &htim3);
 
   //uint8_t first = 0xFF;
    uint8_t Light1[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x41, 0x00, 0x01, 0xCC, 0xE6};
@@ -124,6 +124,7 @@ int main(void)
    uint8_t Moov2[16] = {0xFF, 0xFF, 0xFD, 0x00, 0x02, 0x09, 0x00, 0x03, 0x74, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00};
    uint8_t Ping[10] = {0xFF, 0xFF, 0xFD, 0x00, 0xFE, 0x03, 0x00, 0x01, 0x00, 0x00};
    uint8_t Id2[] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x07, 0x00, 0x02, 0x00, 0x00};
+   uint16_t Test_Sync[] = {2, 2, 5, 0x800, 0x2000};
 
    update_crc_packet(Ping, sizeof(Ping));
    update_crc_packet(Torque_On2, sizeof(Torque_On2));
@@ -132,13 +133,12 @@ int main(void)
    update_crc_packet(Light2, sizeof(Light2));
    update_crc_packet(Moov2, sizeof(Moov2));
 
-   HAL_GPIO_TogglePin (GPIOB, GPIO_PIN_6);
-
    //HAL_UART_Transmit(&huart1, Torque_On2, sizeof(Torque_On2), 1000);
    //HAL_UART_Transmit(&huart1, Id2, sizeof(Id2), 1000);
 
 
-   DXL_Init(&huart1);
+   //DXL_Init(&huart1);
+   //DXL_Torque_On(2);
    //DXL_Torque_On(5);
 
   /* USER CODE END 2 */
@@ -152,31 +152,16 @@ int main(void)
 	  //DXL_Transmit(Light2, sizeof(Light2));
 	  //HAL_UART_Transmit(&huart1, Moov1, sizeof(Moov1), 1000);
 
-	  //DXL_Position(2,00000000); //faire attention à ne pas envoyer un ordre trop élevé, pb de transmission
-
+	  //DXL_Position_Angle(2, 360);
 	  //HAL_UART_Transmit(&huart1, Ping, sizeof(Ping), 1000);
-	  //DXL_Light_On(5);
+	  //DXL_Light_Off(2);
+	  //DXL_Light_Off(5);
 	  //DXL_Update_Id(5,17);
 	  //DXL_Light_Off(17);
-	  //DXL_Position(5,0000);
+	  //DXL_Position_Angle(2,0);
+	  //DXL_Sync_Position(Test_Sync, sizeof(Test_Sync));
 	  //HAL_Delay(1000);
 
-
-
-
-	  /*
-	   HAL_UART_Transmit (&huart1, &first, 1, 15);
-	  HAL_UART_Transmit (&huart1, Light, sizeof(Light), 15);
-
-
-	 	  for(int i=0;i<255;i++){
-	 		  HAL_UART_Transmit (&huart1, Light, sizeof(Light), 15);
-	 		  HAL_Delay(1000);
-	 		  Light[4]++;
-	 		  update_crc_packet(Light, sizeof(Light));
-	 		  i++;
-	 	  }
-	 	  */
 
     /* USER CODE END WHILE */
 
