@@ -1,9 +1,10 @@
 *
 !Core
-!Core/*
+!Core/**
 !Drivers
-!Drivers/*
+!Drivers/**
 !.cproject
 !.gitignore
 !.project
 !Master.ioc
+!STM32G431KBTX_FLASH.ld
