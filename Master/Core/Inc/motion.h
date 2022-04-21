@@ -10,13 +10,10 @@ typedef int32_t Motion_Tick;
 typedef int32_t Motion_PWM;
 typedef double Motion_PID_K;
 
-/* unsigned int channels[] = { faire tableau pour relier Motion_Channel à MO
-
-}; */
 
 typedef enum {
-	MOTION_CHANNEL_FORWARD_LEFT = TIM_CHANNEL_3,
-	MOTION_CHANNEL_FORWARD_RIGHT = TIM_CHANNEL_2,
+	MOTION_CHANNEL_FORWARD_LEFT = TIM_CHANNEL_3, //3
+	MOTION_CHANNEL_FORWARD_RIGHT = TIM_CHANNEL_2, //2
 	MOTION_CHANNEL_BACKWARD_LEFT = TIM_CHANNEL_4,
 	MOTION_CHANNEL_BACKWARD_RIGHT = TIM_CHANNEL_1
 } Motion_Channel;

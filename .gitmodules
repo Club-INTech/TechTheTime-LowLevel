@@ -29,3 +29,6 @@
 [submodule "lib/expected"]
 	path = lib/expected
 	url = https://github.com/TartanLlama/expected.git
+[submodule "lib/Light-Dynamixel-Protocol"]
+	path = lib/Light-Dynamixel-Protocol
+	url = https://github.com/StarQTius/Light-Dynamixel-Protocol.git
