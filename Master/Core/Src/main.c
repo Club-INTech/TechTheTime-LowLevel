@@ -117,6 +117,7 @@ int main(void)
 
 
    DXL_Init(&huart1);
+   /*
    DXL_Torque_On(2);
    DXL_Torque_On(3);
    DXL_Torque_On(4);
@@ -135,6 +136,7 @@ int main(void)
    DXL_Torque_On(17);
    DXL_Torque_On(18);
    DXL_Torque_On(19);
+   */
 
    //DXL_Torque_On(5);
 
