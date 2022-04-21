@@ -11,6 +11,7 @@
 #include <pybind11/stl.h>
 
 #include <order/controller.h>
+#include <order/dxl.h>
 #include <order/hub.h>
 #include <order/motion.h>
 #include <rpc/controller.hpp>
@@ -106,6 +107,12 @@ PYBIND11_MODULE(controller_rpc, m) {
   m.def("release_motor", make_command(rpc::master::keyring.get<Motion_Release>()));
   m.def("set_free_movement", [](Shared_PWM pwm, const std::function<void(upd::byte_t)> &serial_output) {
     rpc::master::keyring.get<Motion_Set_Free_Movement>()(pwm) >> serial_output;
+  });
+  m.def("dxl_position", [](uint8_t id, uint32_t position, const std::function<void(upd::byte_t)> &serial_output ) {
+    rpc::master::keyring.get<DXL_Position>() (id, position) >> serial_output; 
+  });
+  m.def("dxl_position_angle", [](uint8_t id, uint32_t position_angle, const std::function<void(upd::byte_t)> &serial_output ) {
+    rpc::master::keyring.get<DXL_Position_Angle>() (id, position_angle) >> serial_output; 
   });
   m.attr("HEADER") = std::vector<uint8_t>{0xff, 0xff, 0xff};
   py::enum_<rpc::Frame_Type>(m, "FrameType", py::arithmetic())

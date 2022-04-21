@@ -484,6 +484,42 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
     def _get_pid_path(self, profile=""):
         return path.dirname(__file__) + f"/data/{profile}.pid"
+    
+    def do_dxl_pos(self, line) : 
+        """
+        Change position of the dynamixel with a input in tick
+        """
+        parser = Parser(self)
+        parser.add_argument(
+            "dxl_id", type=int, help="Dynamixel id"
+        )
+        parser.add_argument("position_tick", type=int, help="Position in tick for the dynamixel")
+        args = parser.parse_args(line)
+
+        id = args.dxl_id
+        position = args.position_tick
+
+        with self._log_attempt("Moving the position of the dynamixel"):
+            self._remote.pipe.send(remote.Order(rpc.dxl_position, id, position))
+
+
+    def do_dxl_pos_a(self, line) : 
+        """
+        Change position of the dynamixel with a input in degree
+        """
+        parser = Parser(self)
+        parser.add_argument(
+            "dxl_id", type=int, help="Dynamixel id"
+        )
+        parser.add_argument("position_angle", type=int, help="Position in degree for the dynamixel")
+        args = parser.parse_args(line)
+
+        id = args.dxl_id
+        position = args.position_angle
+
+        with self._log_attempt("Moving the position of the dynamixel"):
+            self._remote.pipe.send(remote.Order(rpc.dxl_position_angle, id, position))
+        
 
 
 class AttemptLogger:

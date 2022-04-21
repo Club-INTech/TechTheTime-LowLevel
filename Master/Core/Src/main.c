@@ -27,6 +27,7 @@
 #include "hl.h"
 #include "crc_calculation.h"
 #include "dxl.h"
+#include "order/dxl.h"
 
 /* USER CODE END Includes */
 
@@ -114,32 +115,31 @@ int main(void)
   HL_Init(&huart2);
   Motion_Init(&htim2, &htim4, &htim3);
 
-  //uint8_t first = 0xFF;
-   uint8_t Light1[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x41, 0x00, 0x01, 0xCC, 0xE6};
-   uint8_t Light2[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x02, 0x06, 0x00, 0x03, 0x41, 0x00, 0x01, 0x00, 0x00};
-   uint8_t Torque_On1[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x40, 0x00, 0x01, 0x00, 0x00};
-   uint8_t Torque_Off1[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x40, 0x00, 0x00, 0x00, 0x00};
-   uint8_t Torque_On2[13] = {0xFF, 0xFF, 0xFD, 0x00, 0x02, 0x06, 0x00, 0x03, 0x40, 0x00, 0x01, 0x00, 0x00};
-   uint8_t Moov1[16]= {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x09, 0x00, 0x03, 0x74, 0x00, 0x00, 0x02, 0x00, 0x00, 0xCA, 0x89};
-   uint8_t Moov2[16] = {0xFF, 0xFF, 0xFD, 0x00, 0x02, 0x09, 0x00, 0x03, 0x74, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00};
-   uint8_t Ping[10] = {0xFF, 0xFF, 0xFD, 0x00, 0xFE, 0x03, 0x00, 0x01, 0x00, 0x00};
-   uint8_t Id2[] = {0xFF, 0xFF, 0xFD, 0x00, 0x01, 0x06, 0x00, 0x03, 0x07, 0x00, 0x02, 0x00, 0x00};
-   uint16_t Test_Sync[] = {2, 2, 5, 0x800, 0x2000};
 
-   update_crc_packet(Ping, sizeof(Ping));
-   update_crc_packet(Torque_On2, sizeof(Torque_On2));
-   update_crc_packet(Torque_Off1, sizeof(Torque_Off1));
-   update_crc_packet(Id2, sizeof(Id2));
-   update_crc_packet(Light2, sizeof(Light2));
-   update_crc_packet(Moov2, sizeof(Moov2));
+   DXL_Init(&huart1);
+   DXL_Torque_On(2);
+   DXL_Torque_On(3);
+   DXL_Torque_On(4);
+   DXL_Torque_On(5);
+   DXL_Torque_On(6);
+   DXL_Torque_On(7);
+   DXL_Torque_On(8);
+   DXL_Torque_On(9);
+   DXL_Torque_On(10);
+   DXL_Torque_On(11);
+   DXL_Torque_On(12);
+   DXL_Torque_On(13);
+   DXL_Torque_On(14);
+   DXL_Torque_On(15);
+   DXL_Torque_On(16);
+   DXL_Torque_On(17);
+   DXL_Torque_On(18);
+   DXL_Torque_On(19);
 
-   //HAL_UART_Transmit(&huart1, Torque_On2, sizeof(Torque_On2), 1000);
-   //HAL_UART_Transmit(&huart1, Id2, sizeof(Id2), 1000);
-
-
-   //DXL_Init(&huart1);
-   //DXL_Torque_On(2);
    //DXL_Torque_On(5);
+
+   //DXL_Light_Off(2);
+
 
   /* USER CODE END 2 */
 
@@ -147,20 +147,17 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //HAL_UART_Transmit(&huart1, Id2, sizeof(Id2), 1000);
-	  //HAL_UART_Transmit(&huart1, Ping, sizeof(Ping), 1000);
-	  //DXL_Transmit(Light2, sizeof(Light2));
-	  //HAL_UART_Transmit(&huart1, Moov1, sizeof(Moov1), 1000);
 
-	  //DXL_Position_Angle(2, 360);
+	  //DXL_Position_Angle(2, 90);
 	  //HAL_UART_Transmit(&huart1, Ping, sizeof(Ping), 1000);
-	  //DXL_Light_Off(2);
+	  //DXL_Light_On(2);
 	  //DXL_Light_Off(5);
 	  //DXL_Update_Id(5,17);
 	  //DXL_Light_Off(17);
-	  //DXL_Position_Angle(2,0);
 	  //DXL_Sync_Position(Test_Sync, sizeof(Test_Sync));
 	  //HAL_Delay(1000);
+
+
 
 
     /* USER CODE END WHILE */

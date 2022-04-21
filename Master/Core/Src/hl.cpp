@@ -12,6 +12,7 @@ extern "C" {
 #include <k2o/dispatcher.hpp>
 #include <order/motion.h>
 #include <order/controller.h>
+#include <order/dxl.h>
 #include <rpc/def.hpp>
 #include <rpc/master.hpp>
 
