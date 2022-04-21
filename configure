@@ -4,4 +4,5 @@ mkdir -p extra/controller/data
 
 git submodule init
 git submodule update
+python3 -m venv venv 
 venv/bin/pip3 install -r requirement.txt

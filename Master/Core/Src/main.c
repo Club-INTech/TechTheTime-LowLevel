@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include <math.h>
 #include "motion.h"
+#include <order/motion.h>
 #include "hl.h"
 /* USER CODE END Includes */
 
@@ -120,7 +121,6 @@ int main(void)
   {
 	Misc_Set_Pump(1);
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
