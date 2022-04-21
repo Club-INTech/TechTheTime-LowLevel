@@ -435,9 +435,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         """
         parser = Parser(self)
         parser.add_argument("profile", help="Target profile")
-        parser.add_argument(
-            "--save", "-s", nargs=1, help="Save the current PID profile"
-        )
+        parser.add_argument("--save", "-s", help="Save the current PID profile")
         parser.add_argument(
             "--discard", action="store_true", help="Discard the current PID profile"
         )
@@ -456,6 +454,16 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
                 copyfile(self._get_pid_path(args.profile), self._get_pid_path())
         except FileNotFoundError:
             raise ShellException(f"No such profile '{args.profile}'")
+
+        with self._log_attempt(f"Changing PID parameters on remote"):
+            pid = {}
+            with open(self._get_pid_path()) as f:
+                pid = literal_eval(f.read())
+
+            for target in ["left", "right", "translation", "rotation"]:
+                self._remote.pipe.send(
+                    remote.Order(vars(rpc)[f"set_{target}_pid"], *pid[target].values())
+                )
 
     def do_pid_save(self, line):
         """
@@ -737,7 +745,7 @@ def run_shell(shell):
             is_running = False
         except ShellException as e:
             if e.message is not None:
-                self._out.write(
+                shell._out.write(
                     Fore.RED + Style.BRIGHT + e.message + Style.RESET_ALL + "\n"
                 )
 

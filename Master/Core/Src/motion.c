@@ -169,6 +169,31 @@ Motion_Tick Motion_Get_Right_Ticks(void)
 	}
 }
 
+Shared_Encoded_Ticks Get_Ticks(void) {
+	Motion_Tick left_ticks = Get_Left_Ticks();
+	Motion_Tick right_ticks = Get_Right_Ticks();
+
+	return (((Shared_Encoded_Ticks) left_ticks) << 32u) | ((uint32_t) right_ticks);
+}
+
+Shared_Tick Get_Left_Ticks(void) {
+	Shared_Tick left_ticks = Motion_Get_Left_Ticks();
+	if(left_ticks < 0) {
+		Shared_Tick abs_ticks = -left_ticks;
+		return (abs_ticks) | (1 << 20);
+	}
+	return left_ticks;
+}
+
+Shared_Tick Get_Right_Ticks(void) {
+	Shared_Tick right_ticks = Motion_Get_Right_Ticks();
+	if(right_ticks < 0) {
+		Shared_Tick abs_ticks = -right_ticks;
+		return (abs_ticks) | (1 << 20);
+	}
+	return right_ticks;
+}
+
 void Motion_Update_Left_PWM(Motion_PWM pwm, Motion_Channel Channel_a, Motion_Channel Channel_b)
 {
 	if (pwm > 0) {    // tim_channel_1, tim_cHAL_TIM_Base_Start_IT(hannel_2

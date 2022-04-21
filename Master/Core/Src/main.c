@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include <math.h>
 #include "motion.h"
+#include <order/motion.h>
 #include "hl.h"
 #include "crc_calculation.h"
 #include "dxl.h"
@@ -163,7 +164,6 @@ int main(void)
 
 
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

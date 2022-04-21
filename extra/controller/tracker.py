@@ -132,6 +132,7 @@ class _TrackerProcess:
         self._shows_record = shows_record
         self._setpoint = None
         self._is_running = False
+        self._bias_sum = 0
 
     def __call__(self):
         """
@@ -224,9 +225,15 @@ class _TrackerProcess:
             map(lambda x: x.axhline(y=0, color="r", linestyle="--"), self._axes)
         )
 
+        self._middle_line = self._delta_ax.axvline(
+            x=0, color="xkcd:gunmetal", marker=".", linestyle="-"
+        )
+
         self._timer_texts = list(
             map(lambda x: x.text(s="", x=102, y=0, color="r"), self._axes)
         )
+
+        self._bias_text = self._fig.text(s="", x=0.05, y=0.95)
 
         self._delta_plot = self._delta_ax.plot(
             [], [], color="b", marker=".", linestyle="none"
@@ -285,6 +292,12 @@ class _TrackerProcess:
         self._left_ref_ticks_plot.set_ydata(self._right_ticks_plot.get_ydata())
         self._right_ref_ticks_plot.set_xdata(self._left_ticks_plot.get_xdata())
         self._right_ref_ticks_plot.set_ydata(self._left_ticks_plot.get_ydata())
+
+        self._bias_sum += measure_data[0]
+
+        self._bias_text.set_text(
+            f"Mean bias {self._bias_sum / len(self._left_ticks_plot.get_xdata())}"
+        )
 
     def _set_setpoint(self, setpoint):
         """
@@ -379,13 +392,17 @@ class _TrackerProcess:
             *left_ticks_dt_axis,
             color="tab:red",
             linestyle="dotted",
-            label="Left derivative"
+            label="Left derivative",
         )
         dt_ax.plot(
             *right_ticks_dt_axis,
             color="tab:blue",
             linestyle="dotted",
-            label="Right derivative"
+            label="Right derivative",
+        )
+
+        fig.text(
+            s=f"Mean bias: {self._bias_sum / len(left_ticks_axis[0])}", x=0.05, y=0.95
         )
 
         if self._setpoint:

@@ -1,2 +1,9 @@
-Master Debug.launch
-Debug
+*
+!Core
+!Core/*
+!Drivers
+!Drivers/*
+!.cproject
+!.gitignore
+!.project
+!Master.ioc
