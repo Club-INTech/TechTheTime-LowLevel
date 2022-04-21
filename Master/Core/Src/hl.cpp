@@ -52,6 +52,7 @@ void HL_Start_Frame(rpc::Frame_Type frame_type) {
 }
 
 void HL_Write_Byte(upd::byte_t byte) {
+
 	if (byte == rpc::header[0]) {
 		write_stuff_counter++;
 	} else {
@@ -136,9 +137,9 @@ void HL_Interrupt_Call_Order(UART_HandleTypeDef *) {
 
 	if(indice == hanging_order->input_size()){
 		auto read_byte = [ptr = rx_buf]() mutable { return *ptr++; };
-
 		HL_Start_Frame(rpc::Frame_Type::RESPONSE);
 		(*hanging_order)(read_byte, HL_Write_Byte);
+
 		HL_Reset_Interrupt();
 	} else {
 		HAL_UART_Receive_IT(huart_ptr, &byte, 1);
