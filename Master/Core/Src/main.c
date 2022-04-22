@@ -118,34 +118,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HL_Init(&huart2);
   Motion_Init(&htim2, &htim4, &htim3);
-
-
-   DXL_Init(&huart1);
-   /*
-   DXL_Torque_On(2);
-   DXL_Torque_On(3);
-   DXL_Torque_On(4);
-   DXL_Torque_On(5);
-   DXL_Torque_On(6);
-   DXL_Torque_On(7);
-   DXL_Torque_On(8);
-   DXL_Torque_On(9);
-   DXL_Torque_On(10);
-   DXL_Torque_On(11);
-   DXL_Torque_On(12);
-   DXL_Torque_On(13);
-   DXL_Torque_On(14);
-   DXL_Torque_On(15);
-   DXL_Torque_On(16);
-   DXL_Torque_On(17);
-   DXL_Torque_On(18);
-   DXL_Torque_On(19);
-   */
-
-   //DXL_Torque_On(5);
-
-   //DXL_Light_Off(2);
-
+  DXL_Init(&huart1);
 
   /* USER CODE END 2 */
 
