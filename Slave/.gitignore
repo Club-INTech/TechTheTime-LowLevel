@@ -1,0 +1,10 @@
+*
+!Core
+!Core/**
+!Drivers
+!Drivers/**
+!.cproject
+!.gitignore
+!.project
+!Slave.ioc
+!STM32L432KCUX_FLASH.ld

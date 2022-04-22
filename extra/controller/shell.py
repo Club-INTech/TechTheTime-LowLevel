@@ -476,6 +476,38 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         with self._log_attempt(f"Saving profile {args.profile}"):
             copyfile(self._get_pid_path(), self._get_pid_path(args.profile))
 
+    def do_pump(self, line):
+        """
+        Enable / disable a pump
+        """
+        parser = Parser(self)
+        parser.add_argument("device", type=int, help="ID of the target pump")
+        parser.add_argument(
+            "state",
+            choices=["on", "off"],
+            help="Whether the pump will be enabled or disabled",
+        )
+        args = parser.parse_args(line)
+        self._remote.pipe.send(
+            remote.Order(rpc.set_pump, args.device, args.state == "on")
+        )
+
+    def do_valve(self, line):
+        """
+        Enable / disable a valve
+        """
+        parser = Parser(self)
+        parser.add_argument("device", type=int, help="ID of the target valve")
+        parser.add_argument(
+            "state",
+            choices=["on", "off"],
+            help="Whether the valve will be enabled or disabled",
+        )
+        args = parser.parse_args(line)
+        self._remote.pipe.send(
+            remote.Order(rpc.set_valve, args.device, args.state == "on")
+        )
+
     def do_quit(self, line):
         """
         Quit the current mode
@@ -492,16 +524,16 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
     def _get_pid_path(self, profile=""):
         return path.dirname(__file__) + f"/data/{profile}.pid"
-    
-    def do_dxl_pos(self, line) : 
+
+    def do_dxl_pos(self, line):
         """
         Change position of the dynamixel with a input in tick
         """
         parser = Parser(self)
+        parser.add_argument("dxl_id", type=int, help="Dynamixel id")
         parser.add_argument(
-            "dxl_id", type=int, help="Dynamixel id"
+            "position_tick", type=int, help="Position in tick for the dynamixel"
         )
-        parser.add_argument("position_tick", type=int, help="Position in tick for the dynamixel")
         args = parser.parse_args(line)
 
         id = args.dxl_id
@@ -510,16 +542,15 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         with self._log_attempt("Moving the position of the dynamixel"):
             self._remote.pipe.send(remote.Order(rpc.dxl_position, id, position))
 
-
-    def do_dxl_pos_a(self, line) : 
+    def do_dxl_pos_a(self, line):
         """
         Change position of the dynamixel with a input in degree
         """
         parser = Parser(self)
+        parser.add_argument("dxl_id", type=int, help="Dynamixel id")
         parser.add_argument(
-            "dxl_id", type=int, help="Dynamixel id"
+            "position_angle", type=int, help="Position in degree for the dynamixel"
         )
-        parser.add_argument("position_angle", type=int, help="Position in degree for the dynamixel")
         args = parser.parse_args(line)
 
         id = args.dxl_id
@@ -527,7 +558,6 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         with self._log_attempt("Moving the position of the dynamixel"):
             self._remote.pipe.send(remote.Order(rpc.dxl_position_angle, id, position))
-        
 
 
 class AttemptLogger:
@@ -757,7 +787,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         run_shell(Shell(port=args.port))
-        
+
     finally:
         colorama.deinit()
         self._shell._remote.pipe.send(remote.Order(rpc.release_motor))

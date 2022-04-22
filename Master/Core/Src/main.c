@@ -74,7 +74,6 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
-void Misc_Set_Pump(uint8_t);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -154,18 +153,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-	  //DXL_Position_Angle(2, 90);
-	  //HAL_UART_Transmit(&huart1, Ping, sizeof(Ping), 1000);
-	  //DXL_Light_On(2);
-	  //DXL_Light_Off(5);
-	  //DXL_Update_Id(5,17);
-	  //DXL_Light_Off(17);
-	  //DXL_Sync_Position(Test_Sync, sizeof(Test_Sync));
-	  //HAL_Delay(1000);
-
-	Misc_Set_Pump(1);
-    /* USER CODE END WHILE */
+	  /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -573,11 +561,14 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-
-void Misc_Set_Pump(uint8_t state) {
-	uint8_t ocode = state ? 1 : 0;
+void Misc_Set_Pump(uint8_t device, uint8_t state) {
+	uint8_t ocode = 1 << 7 | (state ? 1 : 0) << 6 | device;
 	HAL_I2C_Master_Transmit(&hi2c2, 1 << 1, &ocode, sizeof ocode, 1000);
-	HAL_Delay(1000);
+}
+
+void Misc_Set_Valve(uint8_t device, uint8_t state) {
+	uint8_t ocode = (state ? 1 : 0) << 6 | device;
+	HAL_I2C_Master_Transmit(&hi2c2, 1 << 1, &ocode, sizeof ocode, 1000);
 }
 
 /* USER CODE END 4 */
