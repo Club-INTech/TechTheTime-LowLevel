@@ -120,8 +120,10 @@ int main(void)
   HL_Init(&huart2);
   Motion_Init(&htim2, &htim4, &htim3);
 
+  uint8_t Ping[] = {0xFF, 0xFF, 0xFD, 0x00, 0xFE, 0x03, 0x00, 0x01, 0x31, 0x42};
 
    DXL_Init(&huart1);
+   //DXL_Torque_Off(9);
    /*
    DXL_Torque_On(2);
    DXL_Torque_On(3);
@@ -155,12 +157,12 @@ int main(void)
   while (1)
   {
 
-	  //DXL_Position_Angle(2, 90);
+	  DXL_Position_Angle(2, -90);
 	  //HAL_UART_Transmit(&huart1, Ping, sizeof(Ping), 1000);
-	  //DXL_Light_On(2);
-	  //DXL_Light_Off(5);
-	  //DXL_Update_Id(5,17);
-	  //DXL_Light_Off(17);
+	  //DXL_Light_On(15);
+		//DXL_Light_Off(15);
+		//DXL_Update_Id(9,15);
+		//DXL_Light_Off(17);
 	  //DXL_Sync_Position(Test_Sync, sizeof(Test_Sync));
 	  //HAL_Delay(1000);
 
