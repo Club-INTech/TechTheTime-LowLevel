@@ -119,6 +119,7 @@ int main(void)
   HL_Init(&huart2);
   Motion_Init(&htim2, &htim4, &htim3);
   DXL_Init(&huart1);
+  DXL_Light_On(4);
 
   /* USER CODE END 2 */
 
