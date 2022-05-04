@@ -515,7 +515,7 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
         parser = Parser(self)
         parser.add_argument("device", type=int, help="ID of the target valve")
         parser.add_argument(
-            "value", type=int, value="Position for the servo (from 0 to 65535)"
+            "value", type=int, help="Position for the servo (from 0 to 65535)"
         )
 
         args = parser.parse_args(line)
@@ -571,6 +571,15 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
 
         with self._log_attempt("Moving the position of the dynamixel"):
             self._remote.pipe.send(remote.Order(rpc.dxl_position_angle, id, position))
+
+    def do_Res(self):
+        """
+        give the resistance value
+        """
+        parser = Parser(self)
+
+        with self._log_attempt("Moving the position of the dynamixel"):
+            self._remote.pipe.send(remote.Order(rpc.give_Res))
 
 
 class AttemptLogger:

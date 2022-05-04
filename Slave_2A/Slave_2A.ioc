@@ -208,4 +208,3 @@ VP_SYS_VS_Systick.Mode=SysTick
 VP_SYS_VS_Systick.Signal=SYS_VS_Systick
 board=NUCLEO-L432KC
 boardIOC=true
-isbadioc=false
