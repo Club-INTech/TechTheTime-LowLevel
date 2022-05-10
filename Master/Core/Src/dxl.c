@@ -68,6 +68,7 @@ void DXL_Position(uint8_t id, uint32_t goal_position) {
 }
 
 
+
 void DXL_Position_Angle(uint8_t id, int32_t goal_angle){
 
 	if ( goal_angle < -180  || goal_angle > 180) {
