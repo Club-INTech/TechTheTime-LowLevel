@@ -67,16 +67,40 @@ void DXL_Position(uint8_t id, uint32_t goal_position) {
 	HAL_UART_Transmit(handler_dxl, Moov, 16, 1000);
 }
 
-void DXL_Position_Angle(uint8_t id, int32_t goal_angle) {
-	uint32_t goal_position = round(11.375 * goal_angle);
-	Pos0 = (goal_position & 0x000000FF);
-	Pos1 = (goal_position & 0x0000FF00) >> 8;
-	Pos2 = (goal_position & 0x00FF0000) >> 16;
-	Pos3 = (goal_position & 0xFF000000) >> 24;
-	uint8_t Moov[] = { 0xFF, 0xFF, 0xFD, 0x00, id, 0x09, 0x00, 0x03, 0x74, 0x00,
-			Pos0, Pos1, Pos2, Pos3, 0x00, 0x00 };
-	update_crc_packet(Moov, 16);
-	HAL_UART_Transmit(handler_dxl, Moov, 16, 1000);
+
+
+void DXL_Position_Angle(uint8_t id, int32_t goal_angle){
+
+	if ( goal_angle < -180  || goal_angle > 180) {
+		return;
+	}
+	else {
+		if ( id == 3) {
+			goal_angle =  - goal_angle + 180;
+		}
+		else if (id == 4 ) {
+			goal_angle = goal_angle + 140;
+		}
+		else if ( id == 5) {
+			goal_angle = - goal_angle + 255;
+		}
+		else {
+			if ( id % 2 == 0 ) {
+				goal_angle = 135 - goal_angle;
+			}
+			else {
+				goal_angle = 180 + goal_angle;
+			}
+		}
+		uint32_t goal_position = round(11.375 * goal_angle);
+		Pos0 = (goal_position & 0x000000FF);
+		Pos1 = (goal_position & 0x0000FF00) >> 8;
+		Pos2 = (goal_position & 0x00FF0000) >> 16;
+		Pos3 = (goal_position & 0xFF000000) >> 24;
+		uint8_t Moov[] = {0xFF, 0xFF, 0xFD, 0x00, id, 0x09, 0x00, 0x03, 0x74, 0x00, Pos0, Pos1, Pos2, Pos3, 0x00, 0x00};
+		update_crc_packet(Moov, 16);
+		HAL_UART_Transmit(handler_dxl, Moov, 16, 1000);
+	}
 }
 
 void DXL_Light_On(uint8_t id) {
