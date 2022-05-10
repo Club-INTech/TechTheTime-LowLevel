@@ -106,9 +106,9 @@ int main(void)
 				 *valve_ports[] = {Valve1_GPIO_Port, Valve2_GPIO_Port, Valve3_GPIO_Port, Valve4_GPIO_Port, Valve5_GPIO_Port, Valve6_GPIO_Port};
 	uint16_t pump_pins[] = {Pump1_Pin, Pump2_Pin, Pump3_Pin, Pump4_Pin, Pump5_Pin, Pump6_Pin},
 			 valve_pins[] = {Valve1_Pin, Valve2_Pin, Valve3_Pin, Valve4_Pin, Valve5_Pin, Valve6_Pin};
-
-	if (HAL_I2C_Slave_Receive(&hi2c3, &buf, sizeof buf, 1000) != HAL_OK) continue;
-
+	//HAL_GPIO_WritePin(pump_ports[1], pump_pins[1], GPIO_PIN_SET);
+	if (HAL_I2C_Slave_Receive(&hi2c3, &buf, sizeof buf, 1000) == HAL_ERROR) continue;
+	//HAL_I2C_Slave_Receive(&hi2c3, &buf, sizeof buf, 1000);
 	if (buf & 1 << 7) {
 		HAL_GPIO_WritePin(pump_ports[buf & ~(0b11 << 6)], pump_pins[buf & ~(0b11 << 6)], buf & 1 << 6 ? GPIO_PIN_SET : GPIO_PIN_RESET);
 	} else {

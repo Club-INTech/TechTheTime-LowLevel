@@ -9,5 +9,6 @@
 #include <order/type.h>
 
 uint8_t isJumperOn(void){
+	int x = (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET) ? 0 : 1;
 	return (HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET) ? 0 : 1;
 }
