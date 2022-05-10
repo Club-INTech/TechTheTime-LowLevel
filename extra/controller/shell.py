@@ -508,6 +508,19 @@ class Shell(cmd.Cmd, metaclass=MetaShell):
             remote.Order(rpc.set_valve, args.device, args.state == "on")
         )
 
+    def do_servo(self, line):
+        """
+        Move a servomotor
+        """
+        parser = Parser(self)
+        parser.add_argument("device", type=int, help="ID of the target valve")
+        parser.add_argument(
+            "value", type=int, value="Position for the servo (from 0 to 65535)"
+        )
+
+        args = parser.parse_args(line)
+        self._remote.pipe.send(remote.Order(rpc.set_servo, args.device, args.value))
+
     def do_quit(self, line):
         """
         Quit the current mode

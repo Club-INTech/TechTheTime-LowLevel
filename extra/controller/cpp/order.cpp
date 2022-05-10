@@ -112,6 +112,7 @@ PYBIND11_MODULE(controller_rpc, m) {
   m.def("dxl_position_angle", make_command(rpc::master::keyring.get<DXL_Position_Angle>()));
   m.def("set_pump", make_command(rpc::master::keyring.get<Misc_Set_Pump>()));
   m.def("set_valve", make_command(rpc::master::keyring.get<Misc_Set_Valve>()));
+  m.def("set_servo", make_command(rpc::master::keyring.get<Misc_Set_Servo>()));
   m.attr("HEADER") = std::vector<uint8_t>{0xff, 0xff, 0xff};
   py::enum_<rpc::Frame_Type>(m, "FrameType", py::arithmetic())
       .value("REQUEST", rpc::Frame_Type::REQUEST)
