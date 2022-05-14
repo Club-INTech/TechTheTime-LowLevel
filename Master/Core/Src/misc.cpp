@@ -25,7 +25,7 @@ extern "C" void Misc_Set_Pump(uint8_t device, uint8_t state) {
 		return;
 
 #if INTECH_TARGET == 1
-	uint8_t ocode = 1 << 7 | (state ? 1 : 0) << 6 | device;
+	static uint8_t ocode = 1 << 7 | (state ? 1 : 0) << 6 | device;
 	HAL_I2C_Master_Transmit_IT(slave_i2c, 1 << 1, &ocode, sizeof ocode);
 #elif INTECH_TARGET == 2
 	p = buf;
@@ -40,7 +40,7 @@ extern "C" void Misc_Set_Valve(uint8_t device, uint8_t state) {
 		return;
 
 #if INTECH_TARGET == 1
-	uint8_t ocode = (state ? 1 : 0) << 6 | device;
+	static uint8_t ocode = (state ? 1 : 0) << 6 | device;
 	HAL_I2C_Master_Transmit_IT(slave_i2c, 1 << 1, &ocode, sizeof ocode);
 #elif INTECH_TARGET == 2
 	p = buf;

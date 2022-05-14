@@ -90,7 +90,6 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -122,18 +121,6 @@ int main(void)
 	Motion_Init(&htim2, &htim4, &htim3);
 	DXL_Init(&huart1);
 	Misc_Init(&hi2c2);
-
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART2_UART_Init();
-  MX_TIM2_Init();
-  MX_TIM3_Init();
-  MX_TIM4_Init();
-  MX_I2C2_Init();
-  MX_USART1_UART_Init();
-  MX_ADC1_Init();
-
   /* USER CODE END 2 */
 
   /* Infinite loop */
