@@ -31,7 +31,7 @@ extern "C" void Service_Process(void) {
 	};
 	auto noop = [](upd::byte_t) {
 	};
-	if (HAL_I2C_Slave_Receive(master_i2c, buf, sizeof buf, 1e5) != HAL_OK)
+	if (HAL_I2C_Slave_Receive(master_i2c, buf, 4, 1e3) != HAL_OK)
 		return;
 	dispatcher(read_buf, noop);
 }
