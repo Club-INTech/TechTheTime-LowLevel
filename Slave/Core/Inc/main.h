@@ -60,8 +60,6 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define Valve5_Pin GPIO_PIN_0
 #define Valve5_GPIO_Port GPIOA
-#define VCP_TX_Pin GPIO_PIN_2
-#define VCP_TX_GPIO_Port GPIOA
 #define Valve4_Pin GPIO_PIN_6
 #define Valve4_GPIO_Port GPIOA
 #define Pump3_Pin GPIO_PIN_0
@@ -80,8 +78,6 @@ void Error_Handler(void);
 #define SWDIO_GPIO_Port GPIOA
 #define SWCLK_Pin GPIO_PIN_14
 #define SWCLK_GPIO_Port GPIOA
-#define VCP_RX_Pin GPIO_PIN_15
-#define VCP_RX_GPIO_Port GPIOA
 #define Valve6_Pin GPIO_PIN_3
 #define Valve6_GPIO_Port GPIOB
 #define Valve3_Pin GPIO_PIN_5

@@ -117,14 +117,26 @@ int main(void)
 	Motion_Init(&htim2, &htim4, &htim3);
 	DXL_Init(&huart1);
 	Misc_Init(&hi2c2);
+
+	//HAL_Delay(1000);
+	uint8_t Ping[] = {0xFF, 0xFF, 0xFD, 0x00, 0xFE, 0x03, 0x00, 0x01, 0x31, 0x42};
+
+
+
+	//HAL_Delay(1000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
 	}
   /* USER CODE END 3 */
 }
