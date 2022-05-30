@@ -34,7 +34,7 @@ typedef struct {
 } Motion_PID_Profile;
 
 
-
+Motion_Tick Motion_Get_Remaining(void);
 void Motion_Init_Arg(Motion_MovementType, Motion_Tick);
 void Motion_Init(TIM_HandleTypeDef *, TIM_HandleTypeDef *, TIM_HandleTypeDef *);
 Motion_Tick Motion_Get_Left_Ticks(void);

@@ -30,7 +30,8 @@
 #include "dxl.h"
 #include "order/dxl.h"
 #include "misc.h"
-
+#include "order/actuator.h"
+#include "homologation.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -115,22 +116,29 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	HL_Init(&huart2);
 	Motion_Init(&htim2, &htim4, &htim3);
+	HAL_Delay(5000);
 	DXL_Init(&huart1);
 	Misc_Init(&hi2c2);
 
-	//HAL_Delay(1000);
-	uint8_t Ping[] = {0xFF, 0xFF, 0xFD, 0x00, 0xFE, 0x03, 0x00, 0x01, 0x31, 0x42};
 
+	//uint8_t Ping[] = {0xFF, 0xFF, 0xFD, 0x00, 0xFE, 0x03, 0x00, 0x01, 0x31, 0x42};
+	for (uint8_t i =17;i>=4;i=i-1){
+		 DXL_Position_Angle(i, 0);
+		 HAL_Delay(500);
+	}
 
+	while ((isJumperOn()) != 1) {
 
-	//HAL_Delay(1000);
+	}
+
+	script_homologation();
+
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 	while (1) {
-
 
 
     /* USER CODE END WHILE */
@@ -516,8 +524,14 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : PA8 */
   GPIO_InitStruct.Pin = GPIO_PIN_8;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LD2_Pin */
   GPIO_InitStruct.Pin = LD2_Pin;
@@ -526,9 +540,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_GPIO_EXTI_Callback(uint16_t pin) {
+	if (pin == GPIO_PIN_4) {
+		Shared_Tick remaining_distance = Motion_Get_Remaining();
+		Motion_Set_Forward_Translation_Setpoint(0);
+		while (HAL_GPIO_ReadPin (GPIOB, GPIO_PIN_4) == GPIO_PIN_SET && remaining_distance > 0);
+		Motion_Set_Forward_Translation_Setpoint(remaining_distance);
+	}
+}
 /* USER CODE END 4 */
 
 /**

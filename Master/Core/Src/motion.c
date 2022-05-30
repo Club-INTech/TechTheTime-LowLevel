@@ -45,6 +45,10 @@ static Motion_Tick distance_arg = 0;
 static Motion_Tick angle_arg = 0;
 static Motion_PWM pwm_arg_free = 0;
 
+Motion_Tick Motion_Get_Remaining(void) {
+	return motion_arg == MOTION_MOVEMENT_TYPE_FORWARD ? finalsetpoint_arg - (Motion_Get_Left_Ticks() + Motion_Get_Right_Ticks()) / 2 : 0;
+}
+
 static void Motion_Start_Motor(void) {
 	HAL_TIM_Base_Start_IT(pwm_handler);
 	HAL_TIM_PWM_Start(pwm_handler, MOTION_CHANNEL_FORWARD_LEFT);
